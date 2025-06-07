@@ -22,7 +22,7 @@ logging.basicConfig(
     level=logging.INFO,
     handlers=[logging.StreamHandler()]
 )
-logger = logging.getLogger(__PJ__)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -36,9 +36,9 @@ if not TOKEN:
 if not OWNER_ID:
     logger.warning("OWNER_ID not set; /setpassword command disabled")
 if not API_ID:
-    logger.warning("API_ID not set; Telegram client features disabled")
+    logger.warning("API_ID not found; Telegram client features disabled")
 if not API_HASH:
-    logger.warning("API_HASH not set; Telegram client features disabled")
+    logger.warning("API_HASH not found")
 
 # In-memory storage
 USER_SESSIONS = {}  # {user_id: session_token}
@@ -73,7 +73,7 @@ HTML_TEMPLATE = """
         .nav button { padding: 8px; margin-right: 5px; cursor: pointer; }
         .values { margin-top: 20px; text-align: right; }
         .values input { width: 100%; max-width: 200px; margin: 5px 0; }
-        .restrict { margin-top: 10px; font-size: 12px; color: #666; text-align: right; }
+        .restrict { margin-top: 10px; font-size: 14px; color: #666; text-align: right; }
         @media (max-width: 600px) {
             .container { flex-direction: column; }
             .index, .content { width: 100%; }
