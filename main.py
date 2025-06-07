@@ -1,226 +1,279 @@
 import os
-import requests
-import subprocess
-import re # Import regex module
-from urllib.parse import urlparse # Import urlparse for filename extraction
+import re
+import urllib.parse
+import html
+import json
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import (
+    Message,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    CallbackQuery,
+    ReplyKeyboardRemove # To remove the reply keyboard when not needed
+)
+from pyrogram.enums import ParseMode
 
-# Replace with your API ID, API Hash, and Bot Token
-API_ID = "22593658"
-API_HASH = "511d0fd8542ada4c0aba4e47bd0892ee"
-BOT_TOKEN = "7775228959:AAFOC1UXl5X4cKGpIr3i1Q2eeCHJjkpcM-Q"
+# =========================================================
+#       BOT CONFIGURATION - EASY TO FILL
+# =========================================================
 
-# Telegram channel where files will be forwarded
-CHANNEL_USERNAME = "https://t.me/Purushottamjangid" # Replace with your channel username
+# 1. API ID (Get from my.telegram.org)
+#    - Environment Variable: API_ID
+#    - Default if not set: 0 (Bot won't run without it)
+API_ID = os.getenv("API_ID", 22593658)
 
-# --- HTML File Username and Password Configuration ---
-HTML_FILE_USERNAME = "CERAMIC"  # <--- SET YOUR DESIRED USERNAME HERE
-HTML_FILE_PASSWORD = "ITSGOLU"  # <--- SET YOUR DESIRED PASSWORD HERE
-# --- END HTML File Username and Password ---
+# 2. API HASH (Get from my.telegram.org)
+#    - Environment Variable: API_HASH
+#    - Default if not set: "" (Bot won't run without it)
+API_HASH = os.getenv("API_HASH", "511d0fd8542ada4c0aba4e47bd0892ee")
 
-# --- NEW: Output Folder Configuration ---
-OUTPUT_HTML_FOLDER = "generated_html" # Define the folder name for generated HTML files
-# --- END NEW ---
+# 3. BOT TOKEN (Get from @BotFather)
+#    - Environment Variable: BOT_TOKEN
+#    - Default if not set: "" (Bot won't run without it)
+BOT_TOKEN = os.getenv("BOT_TOKEN", "7775228959:AAFOC1UXl5X4cKGpIr3i1Q2eeCHJjkpcM-Q")
+
+# 4. OWNER ID (Your Telegram User ID - Get from @userinfobot or @GetMyID_bot)
+#    - Environment Variable: OWNER_ID
+#    - Default if not set: 0 (Crucial for admin access)
+OWNER_ID = int(os.getenv("OWNER_ID", 7740514033))
+
+# --- OPTIONAL DEFAULTS (Can be changed via bot commands later) ---
+
+# 5. DEFAULT HTML FILE USERNAME (for generated HTML pages)
+#    - Environment Variable: HTML_FILE_USERNAME
+#    - Default if not set: "user"
+DEFAULT_HTML_USERNAME = os.getenv("HTML_FILE_USERNAME", "ITSGOLU")
+
+# 6. DEFAULT HTML FILE PASSWORD (for generated HTML pages)
+#    - Environment Variable: HTML_FILE_PASSWORD
+#    - Default if not set: "pass"
+DEFAULT_HTML_PASSWORD = os.getenv("HTML_FILE_PASSWORD", "ITSGOLU")
+
+# 7. YOUR DISPLAY NAME (shown in generated HTML pages)
+#    - Environment Variable: YOUR_NAME_FOR_DISPLAY
+#    - Default if not set: "Engineer Babu"
+DEFAULT_DISPLAY_NAME = os.getenv("YOUR_NAME_FOR_DISPLAY", "धन्देरवाल")
+
+# 8. YOUR TELEGRAM CHANNEL LINK (e.g., https://t.me/your_channel)
+#    - Environment Variable: YOUR_CHANNEL_LINK
+#    - Default if not set: "" (will use a generic Telegram link if invalid)
+DEFAULT_CHANNEL_LINK = os.getenv("YOUR_CHANNEL_LINK", "https://t.me/+G2PAXJs-fUM1OWFl")
+
+# 9. YOUR CONTACT LINK (e.g., https://t.me/your_username or a group link)
+#    - Environment Variable: CONTACT_LINK
+#    - Default if not set: "" (will use a generic Telegram link if invalid)
+DEFAULT_CONTACT_LINK = os.getenv("CONTACT_LINK", "https://t.me/+G2PAXJs-fUM1OWFl")
+
+# 10. SUDO USERS (list of Telegram User IDs who can also use admin commands)
+#      - Environment Variable: SUDO_USERS (comma-separated, e.g., "12345,67890")
+#      - Default if not set: []
+DEFAULT_SUDO_USERS = [7740514033]
+sudo_users_env = os.getenv("SUDO_USERS")
+if sudo_users_env:
+    try:
+        DEFAULT_SUDO_USERS = list(map(int, sudo_users_env.split(',')))
+    except ValueError:
+        print("Warning: SUDO_USERS environment variable contains non-integer values. Ignoring.")
+        DEFAULT_SUDO_USERS = []
+
+
+# =========================================================
+#       DO NOT EDIT BELOW THIS LINE UNLESS YOU KNOW WHAT YOU ARE DOING!
+# =========================================================
+
+# Filename for persistent configuration (managed by the bot)
+CONFIG_FILE = "config.json"
+OUTPUT_HTML_FOLDER = "generated_html"
+
+# Global config dictionary, loaded at bot startup
+config = {}
+
+def load_config():
+    """Loads configuration from config.json or environment variables."""
+    global config
+    
+    # Initialize with default values
+    config.update({
+        "API_ID": API_ID,
+        "API_HASH": API_HASH,
+        "BOT_TOKEN": BOT_TOKEN,
+        "OWNER_ID": OWNER_ID,
+        "HTML_FILE_USERNAME": DEFAULT_HTML_USERNAME,
+        "HTML_FILE_PASSWORD": DEFAULT_HTML_PASSWORD,
+        "YOUR_NAME_FOR_DISPLAY": DEFAULT_DISPLAY_NAME,
+        "YOUR_CHANNEL_LINK": DEFAULT_CHANNEL_LINK,
+        "CONTACT_LINK": DEFAULT_CONTACT_LINK,
+        "SUDO_USERS": DEFAULT_SUDO_USERS
+    })
+
+    # Load from config.json if it exists (overrides defaults and env vars for modifiable settings)
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                loaded_json_config = json.load(f)
+                # Only update the settings that can be modified by bot commands
+                for key in ["OWNER_ID", "SUDO_USERS", "HTML_FILE_USERNAME", 
+                            "HTML_FILE_PASSWORD", "YOUR_NAME_FOR_DISPLAY", 
+                            "YOUR_CHANNEL_LINK", "CONTACT_LINK"]:
+                    if key in loaded_json_config:
+                        if key == "OWNER_ID" and isinstance(loaded_json_config[key], (int, str)):
+                            config[key] = int(loaded_json_config[key])
+                        elif key == "SUDO_USERS" and isinstance(loaded_json_config[key], list):
+                             config[key] = [int(uid) for uid in loaded_json_config[key] if isinstance(uid, (int, str)) and str(uid).isdigit()]
+                        else:
+                            config[key] = loaded_json_config[key]
+            print("Configuration loaded from config.json")
+        except json.JSONDecodeError:
+            print("Error reading config.json, using environment variables or hardcoded defaults.")
+    else:
+        print("config.json not found, using environment variables or hardcoded defaults.")
+
+    # Validate URLs after loading all configs
+    if not (config["YOUR_CHANNEL_LINK"].startswith("http://") or config["YOUR_CHANNEL_LINK"].startswith("https://")):
+        config["YOUR_CHANNEL_LINK"] = "" # Invalid URL, treat as empty
+
+    if not (config["CONTACT_LINK"].startswith("http://") or config["CONTACT_LINK"].startswith("https://")):
+        config["CONTACT_LINK"] = "" # Invalid URL, treat as empty
+
+# Load initial config
+load_config()
+
+def save_config_to_file():
+    """Saves the current global config to config.json."""
+    global config
+    try:
+        # Only save the non-sensitive and modifiable parts to config.json
+        saveable_config = {
+            "OWNER_ID": config["OWNER_ID"],
+            "SUDO_USERS": config["SUDO_USERS"],
+            "HTML_FILE_USERNAME": config["HTML_FILE_USERNAME"],
+            "HTML_FILE_PASSWORD": config["HTML_FILE_PASSWORD"],
+            "YOUR_NAME_FOR_DISPLAY": config["YOUR_NAME_FOR_DISPLAY"],
+            "YOUR_CHANNEL_LINK": config["YOUR_CHANNEL_LINK"],
+            "CONTACT_LINK": config["CONTACT_LINK"]
+        }
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(saveable_config, f, indent=4)
+        print("Configuration saved to config.json")
+    except Exception as e:
+        print(f"Error saving config to config.json: {e}")
 
 # Initialize Pyrogram Client
-app = Client("my_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+app = Client(
+    "my_bot",
+    api_id=config["API_ID"],
+    api_hash=config["API_HASH"],
+    bot_token=config["BOT_TOKEN"]
+)
 
-# Helper function to get a clean filename from a URL for download attribute
-def get_filename_from_url(url, default_name="file"):
-    """
-    URL से एक स्वच्छ फ़ाइलनाम निकालता है, क्वेरी पैरामीटर और फ़्रैगमेंट को हटाता है।
-    यदि कोई उपयुक्त फ़ाइलनाम नहीं मिलता है तो एक डिफ़ॉल्ट नाम प्रदान करता है, और यदि
-    URL से पहचानने योग्य हो तो सही एक्सटेंशन का अनुमान लगाने का प्रयास करता है।
-    """
-    parsed_url = urlparse(url)
-    path = parsed_url.path
-    filename = os.path.basename(path)
-    
-    if filename:
-        # पहले क्वेरी पैरामीटर और फ़्रैगमेंट हटाएँ
-        clean_filename = filename.split('?')[0].split('#')[0]
-        
-        # यदि क्लीन किए गए फ़ाइलनाम में पहले से ही एक्सटेंशन है, तो उसका उपयोग करें
-        if '.' in clean_filename:
-            return clean_filename
-        
-        # यदि कोई एक्सटेंशन नहीं मिलता और URL से अनुमान नहीं लगाया जाता है तो जेनेरिक फ़ॉलबैक
-        if '.mp4' in url:
-            return f"{clean_filename}.mp4"
-        elif '.m3u8' in url:
-            return f"{clean_filename}.m3u8" # मैनिफ़ेस्ट के लिए स्पष्ट रूप से .m3u8 सुझाएँ
-        elif 'pdf' in url:
-            return f"{clean_filename}.pdf"
-        elif '.mpd' in url: # मैनिफ़ेस्ट के लिए .mpd सुझाएँ
-            return f"{clean_filename}.mpd"
-        # अन्य सामान्य वीडियो प्रकार यदि आवश्यक हो तो जोड़ें
-        elif '.webm' in url:
-            return f"{clean_filename}.webm"
-        elif '.avi' in url:
-            return f"{clean_filename}.avi"
-        elif '.mov' in url:
-            return f"{clean_filename}.mov"
-        
-        return f"{clean_filename}.file" # यदि कोई एक्सटेंशन नहीं मिलता और अनुमान नहीं लगाया जाता है तो जेनेरिक फ़ॉलबैक
+# Decorator to check if user is owner or sudo
+def authorized_users_only(func):
+    async def wrapper(client, update):
+        user_id = update.from_user.id
+        if user_id == config["OWNER_ID"] or user_id in config["SUDO_USERS"]:
+            await func(client, update)
+        else:
+            unauth_message = "🚫 You are not authorized to use this command."
+            if isinstance(update, Message):
+                await update.reply_text(unauth_message, reply_markup=ReplyKeyboardRemove())
+            elif isinstance(update, CallbackQuery):
+                await update.answer(unauth_message, show_alert=True) # Show as a pop-up alert
+    return wrapper
 
-    return f"{default_name}.file" # यदि पथ में कोई फ़ाइलनाम नहीं है तो फ़ॉलबैक
-
-
-# Function to extract names and URLs from the text file (no subject support)
+# --- Helper Functions (No changes needed here for UX/Config) ---
 def extract_names_and_urls(file_content):
-    """
-    प्रदान की गई टेक्स्ट फ़ाइल सामग्री से नाम और URL निकालता है।
-    प्रत्येक पंक्ति 'Name: URL' प्रारूप में होने की उम्मीद है।
-    """
     lines = file_content.strip().split("\n")
     data = []
     for line in lines:
-        line = line.strip()
-        if not line: # खाली लाइनों को छोड़ दें
-            continue
         if ":" in line:
             name, url = line.split(":", 1)
             data.append((name.strip(), url.strip()))
     return data
 
-# Function to categorize URLs
 def categorize_urls(urls):
-    """
-    दी गई (नाम, URL) टुपल्स की सूची को URL में पूर्वनिर्धारित पैटर्न के आधार पर
-    वीडियो, PDF और अन्य में वर्गीकृत करता है।
-    """
     videos = []
     pdfs = []
     others = []
 
     for name, url in urls:
         new_url = url
-        # वीडियो निष्कर्षण के लिए विशिष्ट classplusapp.com या testbook URLs की जाँच करें
-        if "media-cdn.classplusapp.com/" in url or "cpvod.testbook" in url:
+        
+        drive_file_id_match = re.search(r'drive\.google\.com/file/d/([a-zA-Z0-9_-]+)(/view)?', url)
+        if drive_file_id_match:
+            file_id = drive_file_id_match.group(1)
+            new_url = f"https://drive.google.com/file/d/{file_id}/preview"
+            pdfs.append((name, new_url))
+            continue
+
+        elif "cdn-wl-assets.classplus.co" in url and ".pdf" in url:
+            encoded_url = urllib.parse.quote_plus(url)
+            new_url = f"https://docs.google.com/viewer?url={encoded_url}&embedded=true"
+            pdfs.append((name, new_url))
+            continue
+        
+        elif "onedrive.live.com/" in url or "1drv.ms/" in url:
+            encoded_url = urllib.parse.quote_plus(url)
+            new_url = f"https://view.officeapps.live.com/op/embed.aspx?src={encoded_url}"
+            pdfs.append((name, new_url))
+            continue
+
+        elif "media-cdn.classplusapp.com/" in url or "cpvod.testbook" in url:
             new_url = f"https://api.extractor.workers.dev/player?url={url}"
             videos.append((name, new_url))
 
-        # वीडियो निष्कर्षण के लिए अन्य classplusapp.com विविधताओं की जाँच करें
-        elif "media-cdn.classplusapp.com/alisg-cdn-a.classplusapp.com/" in url or \
-             "media-cdn.classplusapp.com/1681/" in url or \
-             "media-cdn.classplusapp.com/tencent/" in url:
+        elif "media-cdn.classplusapp.com/alisg-cdn-a.classplusapp.com/" in url or "media-cdn.classplusapp.com/1681/" in url or "media-cdn.classplusapp.com/tencent/" in url:
             new_url = f"https://dragoapi.vercel.app/video/{url}"
             videos.append((name, new_url))
 
-        # akamaized.net या cdn77.org URLs की जाँच करें
         elif "akamaized.net/" in url or "1942403233.rsc.cdn77.org/" in url:
             new_url = f"https://www.khanglobalstudies.com/player?src={url}"
             videos.append((name, new_url))
 
-        # .mpd (MPEG-DASH) वीडियो URLs की जाँच करें
         elif "/master.mpd" in url:
             vid_id = url.split("/")[-2]
             new_url = f"https://player.muftukmall.site/?id={vid_id}"
             videos.append((name, new_url))
 
-        # .zip फाइलों की जाँच करें (संभावित रूप से वीडियो या अन्य मीडिया युक्त)
         elif ".zip" in url:
             new_url = f"https://video.pablocoder.eu.org/appx-zip?url={url}"
             videos.append((name, new_url))
 
-        # cloudfront.net URLs की जाँच करें (एक टोकन प्लेसहोल्डर की आवश्यकता है)
         elif "d1d34p8vz63oiq.cloudfront.net/" in url:
-            # NOTE: 'your_working_token' एक प्लेसहोल्डर है। इस URL को एक वैध टोकन की आवश्यकता है।
-            new_url = f"https://anonymouspwplayer-b99f57957198.herokuapp.com/pw?url={url}?token={{your_working_token}}"
+            new_url = f"https://anonymouspwplayer-b99f57957198.herokuapp.com/pw?url={url}?token={None}"
             videos.append((name, new_url))
 
-        # YouTube एम्बेड URLs की जाँच करें
         elif "youtube.com/embed" in url:
             yt_id = url.split("/")[-1]
             new_url = f"https://www.youtube.com/watch?v={yt_id}"
             videos.append((name, new_url))
 
-        # .m3u8 (HLS) या .mp4 वीडियो प्रारूपों की जाँच करें
-        elif ".m3u8" in url or ".mp4" in url:
+        elif ".m3u8" in url:
             videos.append((name, url))
-        # PDF फाइलों की जाँच करें
+        elif ".mp4" in url:
+            videos.append((name, url))
+        
+        elif "mega.nz/" in url:
+            others.append((name, url))
+            continue
+
         elif "pdf" in url:
             pdfs.append((name, url))
-        # अन्य सभी URLs
         else:
             others.append((name, url))
 
     return videos, pdfs, others
 
-# Function to generate HTML file with Video.js player, theme toggle, and simplified tabs
 def generate_html(file_name, videos, pdfs, others):
-    """
-    एक वीडियो प्लेयर, वर्गीकृत लिंक (कोई विषय नहीं),
-    एक थीम टॉगल बटन, और वीडियो, PDF और अन्य के लिए टैब के साथ एक पूर्ण HTML फ़ाइल उत्पन्न करता है।
-    """
     file_name_without_extension = os.path.splitext(file_name)[0]
 
-    # वीडियो, PDF और अन्य लिंक के लिए Font Awesome आइकनों के साथ HTML उत्पन्न करें
-    # प्रत्येक प्रविष्टि में अब अलग-अलग प्ले/व्यू और डाउनलोड क्रियाएँ शामिल हैं
-    video_links_html = ""
-    for name, url in videos:
-        download_filename = get_filename_from_url(url, name)
-        # In this 3:39 PM version, downloadFileDirectly function is NOT used in HTML
-        # Downloads will open in new tab or download directly depending on browser.
-        video_links_html += f'''
-            <div class="flex flex-col sm:flex-row items-center justify-between p-3 bg-gray-200 dark:bg-gray-700 rounded-lg shadow-sm mb-2">
-                <span class="flex items-center text-gray-800 dark:text-gray-100 font-medium text-sm sm:text-base text-center sm:text-left mb-2 sm:mb-0 flex-grow break-words pr-2">
-                    <i class="fas fa-video w-5 h-5 mr-3 text-red-500 dark:text-red-400 flex-shrink-0"></i>
-                    {name}
-                </span>
-                <div class="flex-shrink-0 flex space-x-2">
-                    <button onclick="playVideo('{url}')" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full text-sm w-8 h-8 flex items-center justify-center" title="Play Video">
-                        <i class="fas fa-play"></i>
-                    </button>
-                    <a href="{url}" target="_blank" download="{download_filename}" class="bg-green-600 hover:bg-green-700 text-white p-2 rounded-full text-sm w-8 h-8 flex items-center justify-center" title="Download">
-                        <i class="fas fa-download"></i>
-                    </a>
-                </div>
-            </div>
-        '''
+    video_links = "".join(f'<a href="#" onclick="playVideo(\'{url}\')" data-original-url="{url}"><svg class="w-5 h-5 mr-3 text-red-400" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zm3.455 1.636A.5.5 0 015.8 7h8.4a.5.5 0 01.345.864L10 12.416 5.455 7.636z"></path></svg>{name}</a>' for name, url in videos)
+    # Modified pdf_links to call openPdf in a new tab
+    pdf_links = "".join(f'<a href="#" onclick="openPdf(\'{html.escape(url)}\'); return false;" data-original-url="{url}"><svg class="w-5 h-5 mr-3 text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.414L16.586 7A2 2 0 0117 8.414V16a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm6 1a1 1 0 100 2h3a1 1 0 100-2h-3zm-3 8a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"></path></svg>{name}</a>' for name, url in pdfs)
+    other_links = "".join(f'<a href="{url}" target="_blank"><svg class="w-5 h-5 mr-3 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 2 0 01-1 1h-2a1 1 0 01-1-1v-3a1 2 0 00-1-1H9a1 1 0 00-1 1v3a1 2 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clip-rule="evenodd"></path></svg>{name}</a>' for name, url in others)
 
-    pdf_links_html = ""
-    for name, url in pdfs:
-        download_filename = get_filename_from_url(url, name)
-        pdf_links_html += f'''
-            <div class="flex flex-col sm:flex-row items-center justify-between p-3 bg-gray-200 dark:bg-gray-700 rounded-lg shadow-sm mb-2">
-                <span class="flex items-center text-gray-800 dark:text-gray-100 font-medium text-sm sm:text-base text-center sm:text-left mb-2 sm:mb-0 flex-grow break-words pr-2">
-                    <i class="fas fa-file-pdf w-5 h-5 mr-3 text-blue-500 dark:text-blue-400 flex-shrink-0"></i>
-                    {name}
-                </span>
-                <div class="flex-shrink-0 flex space-x-2">
-                    <a href="{url}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full text-sm w-8 h-8 flex items-center justify-center" title="View PDF">
-                        <i class="fas fa-eye"></i>
-                    </a>
-                    <a href="{url}" target="_blank" download="{download_filename}" class="bg-green-600 hover:bg-green-700 text-white p-2 rounded-full text-sm w-8 h-8 flex items-center justify-center" title="Download">
-                        <i class="fas fa-download"></i>
-                    </a>
-                </div>
-            </div>
-        '''
-    
-    other_links_html = ""
-    for name, url in others:
-        download_filename = get_filename_from_url(url, name)
-        other_links_html += f'''
-            <div class="flex flex-col sm:flex-row items-center justify-between p-3 bg-gray-200 dark:bg-gray-700 rounded-lg shadow-sm mb-2">
-                <span class="flex items-center text-gray-800 dark:text-gray-100 font-medium text-sm sm:text-base text-center sm:text-left mb-2 sm:mb-0 flex-grow break-words pr-2">
-                    <i class="fas fa-link w-5 h-5 mr-3 text-green-500 dark:text-green-400 flex-shrink-0"></i>
-                    {name}
-                </span>
-                <div class="flex-shrink-0 flex space-x-2">
-                    <a href="{url}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full text-sm w-8 h-8 flex items-center justify-center" title="Open Link">
-                        <i class="fas fa-external-link-alt"></i>
-                    </a>
-                    <a href="{url}" target="_blank" download="{download_filename}" class="bg-green-600 hover:bg-green-700 text-white p-2 rounded-full text-sm w-8 h-8 flex items-center justify-center" title="Download">
-                        <i class="fas fa-download"></i>
-                    </a>
-                </div>
-            </div>
-        '''
-
-    html_template = f'''
+    html_template = f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -231,38 +284,89 @@ def generate_html(file_name, videos, pdfs, others):
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom styles for Video.js or specific overrides if needed */
         .video-js {{
             width: 100% !important;
             height: auto !important;
         }}
-        /* Ensure Inter font is applied globally */
         body {{
             font-family: 'Inter', sans-serif;
-            transition: background-color 0.3s ease, color 0.3s ease; /* Smooth transition for theme change */
+            transition: background-color 0.3s ease, color 0.3s ease;
         }}
-        /* Active states for tabs */
         .active-tab {{
-            background-color: #3b82f6; /* blue-500 */
+            background-color: #3b82f6;
             color: white;
             box-shadow: 0 4px 10px rgba(59, 130, 246, 0.4);
         }}
         .active-content {{
             display: block;
         }}
-        /* Styling for the list items with icons */
-        .video-list > div, .pdf-list > div, .other-list > div {{
-            /* Common styling for the div containing name and buttons */
-            margin-bottom: 8px; /* consistent spacing */
-        }}
         .video-list a, .pdf-list a, .other-list a {{
-            text-decoration: none; /* remove underline from links */
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            margin: 8px 0;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: 1px solid;
         }}
-        /* Theme button specific styles */
-        #theme-toggle {{
-            background-color: #f3f4f6; /* Light theme button background */
-            color: #1f2937; /* Light theme button icon color */
-            border-radius: 9999px; /* Full rounded */
+        html.dark .bg-main {{ background-color: #1a202c; }}
+        html.dark .text-main {{ color: #e2e8f0; }}
+        html.dark .card-bg {{ background-color: #2d3748; }}
+        html.dark .header-bg {{ background-color: #1a202c; color: white; }}
+        html.dark .tab-bg {{ background-color: #374151; color: #9ca3af; }}
+        html.dark .tab-hover:hover {{ background-color: #4a5568; }}
+        html.dark .content-bg {{ background-color: #374151; }}
+        html.dark .border-main {{ border-color: #4a5568; }}
+        html.dark .footer-border {{ border-color: #2d3748; }}
+        html.dark .footer-text {{ color: #a0aec0; }}
+        html.dark .input-field {{ background-color: #374151; color: #e2e8f0; border-color: #4a5568; }}
+        html.dark .error-text {{ color: #f87171; }}
+        html.dark .blue-link {{ color: #93c5fd; }}
+        html.dark .blue-link:hover {{ color: #bfdbfe; }}
+        html.dark .btn-blue {{ background-color: #2563eb; color: white; }}
+        html.dark .btn-blue:hover {{ background-color: #1d4ed8; }}
+        html.dark .video-list a, html.dark .pdf-list a, html.dark .other-list a {{
+            background: #374151;
+            color: #93c5fd;
+            border-color: #4b5563;
+        }}
+        html.dark .video-list a:hover, html.dark .pdf-list a:hover, html.dark .other-list a:hover {{
+            background: #4b5563;
+            color: #bfdbfe;
+        }}
+
+        html.light .bg-main {{ background-color: #f7fafc; }}
+        html.light .text-main {{ color: #2d3748; }}
+        html.light .card-bg {{ background-color: #ffffff; }}
+        html.light .header-bg {{ background-color: #edf2f7; color: #2d3748; }}
+        html.light .tab-bg {{ background-color: #edf2f7; color: #4a5568; }}
+        html.light .tab-hover:hover {{ background-color: #e2e8f0; }}
+        html.light .content-bg {{ background-color: #edf2f7; }}
+        html.light .border-main {{ border-color: #cbd5e0; }}
+        html.light .footer-border {{ border-color: #e2e8f0; }}
+        html.light .footer-text {{ color: #718096; }}
+        html.light .input-field {{ background-color: #ffffff; color: #2d3748; border-color: #cbd5e0; }}
+        html.light .error-text {{ color: #e53e3e; }}
+        html.light .blue-link {{ color: #3182ce; }}
+        html.light .blue-link:hover {{ color: #2b6cb0; }}
+        html.light .btn-blue {{ background-color: #4299e1; color: white; }}
+        html.light .btn-blue:hover {{ background-color: #3182ce; }}
+        html.light .video-list a, html.light .pdf-list a, html.light .other-list a {{
+            background: #ffffff;
+            color: #2c5282;
+            border-color: #e2e8f0;
+        }}
+        html.light .video-list a:hover, html.light .pdf-list a:hover, html.light .other-list a:hover {{
+            background: #edf2f7;
+            color: #2b6cb0;
+        }}
+
+        .theme-toggle-btn {{
+            background-color: #f3f4f6;
+            color: #1f2937;
+            border-radius: 9999px;
             padding: 0.5rem;
             cursor: pointer;
             border: none;
@@ -271,48 +375,19 @@ def generate_html(file_name, videos, pdfs, others):
             z-index: 10;
         }}
 
-        html.dark #theme-toggle {{
-            background-color: #374151; /* Dark theme button background */
-            color: #93c5fd; /* Dark theme button icon color */
+        html.dark .theme-toggle-btn {{
+            background-color: #374151;
+            color: #93c5fd;
             box-shadow: 0 2px 5px rgba(0,0,0,0.5);
         }}
 
-        #theme-toggle:hover {{
+        .theme-toggle-btn:hover {{
             transform: scale(1.1);
         }}
 
-        /* Hamburger button styles */
-        #hamburger-button {{
-            background-color: #f3f4f6; /* Light theme button background */
-            color: #1f2937; /* Light theme button icon color */
-            border-radius: 9999px; /* Full rounded */
-            padding: 0.5rem;
-            cursor: pointer;
-            border: none;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
-            z-index: 10;
-        }}
-
-        html.dark #hamburger-button {{
-            background-color: #374151; /* Dark theme button background */
-            color: #93c5fd; /* Dark theme button icon color */
-            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-        }}
-
-        #hamburger-button:hover {{
-            transform: scale(1.1);
-        }}
-
-        /* Sidebar menu transition */
-        #sidebar-menu.open {{
-            transform: translateX(0);
-        }}
-
-        /* Loading Spinner */
         .loader {{
-            border: 4px solid #f3f3f3; /* Light grey */
-            border-top: 4px solid #3b82f6; /* Blue */
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
             border-radius: 50%;
             width: 30px;
             height: 30px;
@@ -323,126 +398,192 @@ def generate_html(file_name, videos, pdfs, others):
             0% {{ transform: rotate(0deg); }}
             100% {{ transform: rotate(360deg); }}
         }}
+
+        .highlight-link {{
+            border: 2px solid;
+            animation: highlight-pulse 1s infinite alternate;
+        }}
+
+        @keyframes highlight-pulse {{
+            from {{ transform: scale(1); opacity: 1; }}
+            to {{ transform: scale(1.02); opacity: 0.9; }}
+        }}
+
     </style>
 </head>
-<body class="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+<body class="min-h-screen flex flex-col items-center justify-center p-4 bg-main text-main">
 
-    <div id="password-prompt" class="bg-gray-100 dark:bg-gray-800 p-8 rounded-lg shadow-xl max-w-md w-full text-center">
-        <h2 class="text-3xl font-bold text-blue-600 dark:text-blue-500 mb-6">Access Required</h2>
+    <div id="password-prompt" class="card-bg p-8 rounded-lg shadow-xl max-w-md w-full text-center relative">
+        <h2 class="text-3xl font-bold text-blue-500 mb-6">Access Required</h2>
+        <button id="password-theme-toggle" class="theme-toggle-btn absolute top-4 right-4">
+            <i class="fas fa-moon"></i> </button>
         <input type="text" id="username-input" placeholder="Enter Username" required
-               class="w-full p-3 mb-4 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <input type="password" id="password-input" placeholder="Enter Password" required
-               class="w-full p-3 mb-6 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <button onclick="checkPassword()"
-                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-lg">
-            Access Content
-        </button>
-        <div class="error-message text-red-600 dark:text-red-400 mt-4 font-semibold"></div>
-    </div>
-
-    <div id="protectedContent" class="hidden w-full max-w-4xl mx-auto bg-gray-100 dark:bg-gray-800 rounded-lg shadow-xl p-6 md:p-8 mt-6 relative">
-        <!-- Theme Toggle Button -->
-        <button id="theme-toggle" class="absolute top-4 right-4">
-            <i class="fas fa-moon text-lg"></i> <!-- Default to moon icon for light mode -->
-        </button>
-
-        <!-- Hamburger Menu Button (visible on small screens) -->
-        <button id="hamburger-button" class="absolute top-4 left-4 p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 block md:hidden transition-all duration-300 hover:scale-110 shadow-md">
-            <i class="fas fa-bars text-lg"></i>
-        </button>
-
-        <!-- Off-canvas Menu (Sidebar) -->
-        <div id="sidebar-menu" class="fixed top-0 left-0 h-full w-64 bg-gray-100 dark:bg-gray-800 p-6 z-50 transform -translate-x-full transition-transform duration-300 ease-in-out shadow-lg">
-            <button id="close-sidebar-button" class="absolute top-4 right-4 p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 transition-all duration-300 hover:scale-110">
-                <i class="fas fa-times text-lg"></i>
-            </button>
-            <h3 class="text-xl font-bold text-blue-600 dark:text-blue-400 mb-6 mt-12">Navigation</h3>
-            <nav>
-                <ul class="space-y-4">
-                    <li><a href="#" onclick="showContent('videos', document.querySelector('.tab[data-tab=\\'videos\\']')); closeHamburgerMenu();" class="block p-3 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center"><i class="fas fa-video w-5 h-5 mr-3 text-red-500 dark:text-red-400"></i> Videos</a></li>
-                    <li><a href="#" onclick="showContent('pdfs', document.querySelector('.tab[data-tab=\\'pdfs\\']')); closeHamburgerMenu();" class="block p-3 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center"><i class="fas fa-file-pdf w-5 h-5 mr-3 text-blue-500 dark:text-blue-400"></i> PDFs</a></li>
-                    <li><a href="#" onclick="showContent('others', document.querySelector('.tab[data-tab=\\'others\\']')); closeHamburgerMenu();" class="block p-3 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center"><i class="fas fa-external-link-alt w-5 h-5 mr-3 text-green-500 dark:text-green-400"></i> Others</a></li>
-                </ul>
-            </nav>
+                class="w-full p-3 mb-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 input-field">
+        
+        <div class="relative mb-6">
+            <input type="password" id="password-input" placeholder="Enter Password" required
+                    class="w-full p-3 pr-10 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 input-field">
+            <span class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer" onclick="togglePasswordVisibility()">
+                <i id="toggle-password-icon" class="fas fa-eye"></i> </i>
+            </span>
         </div>
 
-        <!-- Overlay for Sidebar -->
-        <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden" onclick="closeHamburgerMenu()"></div>
+        <button onclick="checkPassword()"
+                 class="font-bold py-3 px-8 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-lg btn-blue">
+            Access Content
+        </button>
+        <div class="error-message mt-4 font-semibold error-text"></div>
+        
+        <div class="text-center text-sm mt-4 pt-2 border-t footer-border footer-text">
+            <a href="{config['YOUR_CHANNEL_LINK'] or 'about:blank'}" target="_blank" class="font-semibold transition-colors duration-200 blue-link hover:blue-link">{config['YOUR_NAME_FOR_DISPLAY']}</a>
+        </div>
+    </div>
 
-        <div class="bg-gray-200 dark:bg-gray-900 text-gray-900 dark:text-white p-4 rounded-t-lg text-center mb-6">
+    <div id="protectedContent" class="hidden w-full max-w-4xl mx-auto card-bg rounded-lg shadow-xl p-6 md:p-8 mt-6 relative">
+        <button id="main-theme-toggle" class="theme-toggle-btn absolute top-4 right-4">
+            <i class="fas fa-sun"></i> </button>
+
+        <div class="header-bg p-4 rounded-t-lg text-center mb-6">
             <h1 class="text-2xl md:text-3xl font-extrabold">{file_name_without_extension}</h1>
-            <p class="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-2">
-               <a href="https://t.me/+xKJ02aVap_4xZDk1" target="_blank" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold transition-colors duration-200">पुरुषोत्तम जांगिड़™</a>
+            <p class="text-sm md:text-base text-gray-400 mt-2">
+                <a href="{config['YOUR_CHANNEL_LINK'] or 'about:blank'}" target="_blank" class="font-semibold transition-colors duration-200 blue-link hover:blue-link">{config['YOUR_NAME_FOR_DISPLAY']}</a>
             </p>
         </div>
 
-        <div id="video-player" class="mb-8 bg-gray-200 dark:bg-black rounded-lg overflow-hidden relative">
-            <div id="player-status" class="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 text-white z-20 hidden">
-                <div class="loader mr-3 hidden"></div> <!-- Spinner -->
-                <span id="status-message"></span>
-            </div>
-            <video id="engineer-babu-player" class="video-js vjs-default-skin w-full h-auto" controls preload="auto">
-                <p class="vjs-no-js text-gray-900 dark:text-white p-4">
+        <div id="player-container" class="mb-8 bg-black rounded-lg overflow-hidden relative" style="padding-top: 56.25%;">
+            <video id="engineer-babu-player" class="video-js vjs-default-skin absolute top-0 left-0 w-full h-full" controls preload="auto">
+                <p class="vjs-no-js text-white p-4">
                     To view this video please enable JavaScript, and consider upgrading to a web browser that
-                    <a href="https://videojs.com/html5-video-support/" target="_blank" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">supports HTML5 video</a>
+                    <a href="https://videojs.com/html5-video-support/" target="_blank" class="blue-link hover:blue-link">supports HTML5 video</a>
                 </p>
             </video>
+            <iframe id="iframe-player" class="hidden absolute top-0 left-0 w-full h-full" allowfullscreen allow="encrypted-media"></iframe>
+            <div id="video-controls" class="absolute top-4 right-4 flex flex-col gap-2 z-10 hidden">
+                <button id="video-location-btn" onclick="findVideoLocation()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full text-sm shadow-lg">
+                    <i class="fas fa-map-marker-alt"></i>
+                </button>
+            </div>
         </div>
 
-        <div class="hidden md:flex flex-wrap justify-center mb-6 gap-2">
-            <div class="tab flex-1 min-w-[100px] text-center py-3 px-4 bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-md cursor-pointer transition-all duration-300 hover:bg-gray-400 dark:hover:bg-gray-600 active-tab"
+        <div class="flex flex-wrap justify-center mb-6 gap-2">
+            <div class="tab flex-1 min-w-[100px] text-center py-3 px-4 font-semibold rounded-md cursor-pointer transition-all duration-300 tab-bg tab-hover active-tab"
                  data-tab="videos" onclick="showContent('videos', this)">Videos</div>
-            <div class="tab flex-1 min-w-[100px] text-center py-3 px-4 bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-md cursor-pointer transition-all duration-300 hover:bg-gray-400 dark:hover:bg-gray-600"
+            <div class="tab flex-1 min-w-[100px] text-center py-3 px-4 font-semibold rounded-md cursor-pointer transition-all duration-300 tab-bg tab-hover"
                  data-tab="pdfs" onclick="showContent('pdfs', this)">PDFs</div>
-            <div class="tab flex-1 min-w-[100px] text-center py-3 px-4 bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-md cursor-pointer transition-all duration-300 hover:bg-gray-400 dark:hover:bg-gray-600"
+            <div class="tab flex-1 min-w-[100px] text-center py-3 px-4 font-semibold rounded-md cursor-pointer transition-all duration-300 tab-bg tab-hover"
                  data-tab="others" onclick="showContent('others', this)">Others</div>
         </div>
 
-        <div id="videos" class="content active-content bg-gray-200 dark:bg-gray-700 p-6 rounded-lg shadow-inner">
-            <h2 class="text-xl font-bold text-blue-600 dark:text-blue-400 mb-4 border-b border-gray-300 dark:border-gray-600 pb-2">All Video Lectures</h2>
-            <div class="video-list space-y-2">
-                {video_links_html}
+        <div class="mb-6 flex gap-2">
+            <input type="text" id="searchInput" onkeyup="filterLinks()" placeholder="Search links..."
+                    class="flex-1 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 input-field">
+            <button onclick="filterLinks()"
+                     class="btn-blue py-3 px-6 rounded-md font-semibold transition-all duration-300">
+                <i class="fas fa-search"></i>
+            </button>
+        </div>
+
+        <div id="videos" class="content active-content p-6 rounded-lg shadow-inner content-bg">
+            <h2 class="text-xl font-bold blue-link mb-4 border-b pb-2 border-main">All Video Lectures</h2>
+            <div class="video-list">
+                {video_links}
             </div>
         </div>
 
-        <div id="pdfs" class="content hidden bg-gray-200 dark:bg-gray-700 p-6 rounded-lg shadow-inner">
-            <h2 class="text-xl font-bold text-blue-600 dark:text-blue-400 mb-4 border-b border-gray-300 dark:border-gray-600 pb-2">All PDFs</h2>
-            <div class="pdf-list space-y-2">
-                {pdf_links_html}
+        <div id="pdfs" class="content hidden p-6 rounded-lg shadow-inner content-bg">
+            <h2 class="text-xl font-bold blue-link mb-4 border-b pb-2 border-main">All PDFs</h2>
+            <div class="pdf-list">
+                {pdf_links}
             </div>
         </div>
 
-        <div id="others" class="content hidden bg-gray-200 dark:bg-gray-700 p-6 rounded-lg shadow-inner">
-            <h2 class="text-xl font-bold text-blue-600 dark:text-blue-400 mb-4 border-b border-gray-300 dark:border-gray-600 pb-2">Other Resources</h2>
-            <div class="other-list space-y-2">
-                {other_links_html}
+        <div id="others" class="content hidden p-6 rounded-lg shadow-inner content-bg">
+            <h2 class="text-xl font-bold blue-link mb-4 border-b pb-2 border-main">Other Resources</h2>
+            <div class="other-list">
+                {other_links}
             </div>
         </div>
 
-        <div class="text-center text-gray-600 dark:text-gray-400 text-sm mt-8 pt-4 border-t border-gray-300 dark:border-gray-700">
-            <a href="https://t.me/+xKJ02aVap_4xZDk1" target="_blank" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold transition-colors duration-200">पुरुषोत्तम जांगिड़™</a>
+        <div class="text-center text-sm mt-8 pt-4 footer-border footer-text">
+            <a href="{config['YOUR_CHANNEL_LINK'] or 'about:blank'}" target="_blank" class="font-semibold transition-colors duration-200 blue-link hover:blue-link">{config['YOUR_NAME_FOR_DISPLAY']}</a>
         </div>
     </div>
 
     <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
     <script>
-        // --- HTML Username & Password Logic ---
-        const HTML_USERNAME = "{HTML_FILE_USERNAME}";
-        const HTML_PASSWORD = "{HTML_FILE_PASSWORD}";
+        const HTML_USERNAME = "{config['HTML_FILE_USERNAME']}";
+        const HTML_PASSWORD = "{config['HTML_FILE_PASSWORD']}";
         const protectedContent = document.getElementById('protectedContent');
         const passwordPrompt = document.getElementById('password-prompt');
         const errorMessageDiv = passwordPrompt.querySelector('.error-message');
+        const htmlElement = document.documentElement;
+
+        // Global variables for currently active media
+        let currentVideoUrl = ''; // Stores unescaped Video URL
+
+        // Helper function to unescape HTML entities
+        function htmlUnescape(str) {{
+            var el = document.createElement('textarea');
+            el.innerHTML = str;
+            return el.textContent;
+        }}
+
+        function applyTheme(theme) {{
+            const passwordThemeToggleBtn = document.getElementById('password-theme-toggle');
+            const mainThemeToggleBtn = document.getElementById('main-theme-toggle');
+
+            if (passwordThemeToggleBtn && mainThemeToggleBtn) {{
+                if (theme === 'dark') {{
+                    htmlElement.classList.add('dark');
+                    htmlElement.classList.remove('light');
+                    localStorage.setItem('theme', 'dark');
+                    passwordThemeToggleBtn.innerHTML = '<i class="fas fa-sun"></i>';
+                    mainThemeToggleBtn.innerHTML = '<i class="fas fa-sun"></i>';
+                }} else {{
+                    htmlElement.classList.add('light');
+                    htmlElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                    passwordThemeToggleBtn.innerHTML = '<i class="fas fa-moon"></i>';
+                    mainThemeToggleBtn.innerHTML = '<i class="fas fa-moon"></i>';
+                }}
+            }}
+        }}
+
+        document.addEventListener('DOMContentLoaded', () => {{
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {{
+                applyTheme(savedTheme);
+            }} else {{
+                applyTheme("dark");
+            }}
+
+            const passwordThemeToggleBtn = document.getElementById('password-theme-toggle');
+            if (passwordThemeToggleBtn) {{
+                passwordThemeToggleBtn.addEventListener('click', () => {{
+                    const currentTheme = htmlElement.classList.contains('dark') ? 'dark' : 'light';
+                    applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+                }});
+            }}
+
+            const mainThemeToggleBtn = document.getElementById('main-theme-toggle');
+            if (mainThemeToggleBtn) {{
+                mainThemeToggleBtn.addEventListener('click', () => {{
+                    const currentTheme = htmlElement.classList.contains('dark') ? 'dark' : 'light';
+                    applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+                }});
+            }}
+        }});
 
         function checkPassword() {{
             const enteredUsername = document.getElementById('username-input').value;
             const enteredPassword = document.getElementById('password-input').value;
 
             if (enteredUsername === HTML_USERNAME && enteredPassword === HTML_PASSWORD) {{
-                passwordPrompt.style.display = 'none'; // Hide password prompt
-                protectedContent.classList.remove('hidden'); // Show content
-                protectedContent.classList.add('flex', 'flex-col'); // Add flex for proper layout
+                passwordPrompt.style.display = 'none';
+                protectedContent.classList.remove('hidden');
+                protectedContent.classList.add('flex', 'flex-col');
 
-                // Initialize Video.js player
                 const player = videojs('engineer-babu-player', {{
                     controls: true,
                     autoplay: false,
@@ -455,298 +596,383 @@ def generate_html(file_name, videos, pdfs, others):
                             'currentTimeDisplay',
                             'timeDivider',
                             'durationDisplay',
-                            'progressControl',
                             'liveDisplay',
                             'remainingTimeDisplay',
                             'customControlSpacer',
-                            'playbackRateMenuButton',
-                            'chaptersButton',
-                            'descriptionsButton',
-                            'subsCapsButton',
-                            'audioTrackButton',
+                            'progressControl',
                             'fullscreenToggle'
                         ]
                     }}
                 }});
 
-                // Add error handling for the player
-                player.on('error', function() {{
-                    const error = player.error();
-                    let message = "Could not load video. ";
-                    if (error) {{
-                        if (error.code === 4) {{ // MEDIA_ERR_SRC_NOT_SUPPORTED
-                            message += "The video format might not be supported, or the external extractor service failed to process the link. Try downloading the file.";
-                        }} else if (error.code === 2) {{ // MEDIA_ERR_NETWORK
-                            message += "Network error: Please check your internet connection. If the issue persists, the video source might be unavailable.";
-                        }} else {{
-                            message += `An error occurred (Code: ${{error.code}}). Please try again or download the video.`;
-                        }}
-                    }} else {{
-                        message += "An unknown error occurred. Please try again or download the video.";
+                // Check for hash in URL and highlight link
+                const hash = window.location.hash.substring(1);
+                if (hash) {{
+                    const targetLink = document.querySelector(`[data-original-url="${decodeURIComponent(hash)}"]`);
+                    if (targetLink) {{
+                        targetLink.classList.add('highlight-link');
+                        targetLink.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                        // Remove highlight after some time
+                        setTimeout(() => {{
+                            targetLink.classList.remove('highlight-link');
+                        }}, 5000);
                     }}
-                    showPlayerStatus(message, false);
-                    console.error("Video.js Player Error:", error);
-                }});
-
-                player.on('loadeddata', function() {{
-                    hidePlayerStatus(); // Hide status when video data is loaded and ready to play
-                }});
-                
-                showContent('videos', document.querySelector('.tab[data-tab="videos"]')); // Show the initial video tab
-            }} else {{
-                errorMessageDiv.textContent = "Incorrect username or password. Access denied.";
-            }}
-        }}
-
-        document.addEventListener('DOMContentLoaded', () => {{
-            passwordPrompt.style.display = 'block';
-            applyTheme(); // Apply theme when the page loads
-        }});
-        // --- END HTML Username & Password ---
-
-        // --- Theme Toggle Logic ---
-        const themeToggleBtn = document.getElementById('theme-toggle');
-        const htmlElement = document.documentElement; // This is the <html> tag
-
-        function applyTheme() {{
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark') {{
-                htmlElement.classList.add('dark');
-                themeToggleBtn.innerHTML = '<i class="fas fa-sun text-lg"></i>'; // Show sun icon for dark mode
-            }} else {{
-                htmlElement.classList.remove('dark');
-                themeToggleBtn.innerHTML = '<i class="fas fa-moon text-lg"></i>'; // Show moon icon for light mode
-            }}
-        }}
-
-        function toggleTheme() {{
-            if (htmlElement.classList.contains('dark')) {{
-                htmlElement.classList.remove('dark');
-                localStorage.setItem('theme', 'light');
-                themeToggleBtn.innerHTML = '<i class="fas fa-moon text-lg"></i>';
-            }} else {{
-                htmlElement.classList.add('dark');
-                localStorage.setItem('theme', 'dark');
-                themeToggleBtn.innerHTML = '<i class="fas fa-sun text-lg"></i>';
-            }}
-        }}
-
-        themeToggleBtn.addEventListener('click', toggleTheme);
-
-        // --- END Theme Toggle Logic ---
-
-        // --- Hamburger Menu Logic ---
-        const hamburgerButton = document.getElementById('hamburger-button');
-        const closeSidebarButton = document.getElementById('close-sidebar-button');
-        const sidebarMenu = document.getElementById('sidebar-menu');
-        const sidebarOverlay = document.getElementById('sidebar-overlay');
-
-        function openHamburgerMenu() {{
-            sidebarMenu.classList.remove('-translate-x-full');
-            sidebarMenu.classList.add('open');
-            sidebarOverlay.classList.remove('hidden');
-            document.body.classList.add('overflow-hidden'); // Prevent scrolling
-        }}
-
-        function closeHamburgerMenu() {{
-            sidebarMenu.classList.add('-translate-x-full');
-            sidebarMenu.classList.remove('open');
-            sidebarOverlay.classList.add('hidden');
-            document.body.classList.remove('overflow-hidden');
-        }}
-
-        hamburgerButton.addEventListener('click', openHamburgerMenu);
-        closeSidebarButton.addEventListener('click', closeHamburgerMenu);
-        sidebarOverlay.addEventListener('click', closeHamburgerMenu);
-        // --- END Hamburger Menu Logic ---
-
-        // --- Player Status/Loading Logic ---
-        const playerStatusDiv = document.getElementById('player-status');
-        const statusMessageSpan = document.getElementById('status-message');
-        const loaderSpinner = playerStatusDiv.querySelector('.loader');
-
-        function showPlayerStatus(message, showSpinner = true) {{
-            statusMessageSpan.textContent = message;
-            playerStatusDiv.classList.remove('hidden');
-            if (showSpinner) {{
-                loaderSpinner.classList.remove('hidden');
-            }} else {{
-                loaderSpinner.classList.add('hidden');
-            }}
-        }}
-
-        function hidePlayerStatus() {{
-            playerStatusDiv.classList.add('hidden');
-            loaderSpinner.classList.add('hidden');
-            statusMessageSpan.textContent = '';
-        }}
-
-        // --- JavaScript Download Function (for PDFs, MP4s, MPDs) ---
-        // Removed from this version as per 3:39 PM request.
-        // Files will now download via standard HTML <a> tag behavior.
-        
-        // --- Play Video Function (Modified for status messages) ---
-        function playVideo(url) {{
-            const player = videojs('engineer-babu-player');
-            hidePlayerStatus(); // Clear any previous status
-
-            // Show loading message
-            showPlayerStatus("Loading video...", true);
-            
-            // Attempt to reset player and load new source
-            player.pause();
-            player.reset(); // Clear previous errors and sources
-
-            if (url.includes('.m3u8')) {{
-                player.src({{ src: url, type: 'application/x-mpegURL' }});
-            }} else if (url.includes('.mp4')) {{
-                player.src({{ src: url, type: 'video/mp4' }});
-            }} else if (url.includes('.mpd')) {{ // Added .mpd specific type
-                player.src({{ src: url, type: 'application/dash+xml' }});
-            }}
-            else {{
-                // Fallback for unrecognized video types - will try to play, but might fail.
-                // The error event listener will catch and display appropriate message.
-                player.src({{ src: url, type: 'video/webm' }}); // Default fallback type
-                console.warn("Attempting to play an unrecognized video URL type. Playback may fail:", url);
-            }}
-
-            player.load();
-            player.play().catch(error => {{
-                // This catch handles errors from the play() promise itself (e.g., autoplay blocked)
-                if (error.name === 'NotAllowedError') {{
-                    showPlayerStatus("Autoplay prevented. Please click play manually.", false);
-                }} else {{
-                    showPlayerStatus("Could not play video. See console for details.", false);
                 }}
-                console.error("Video playback promise rejected:", error);
-            }});
+
+            }} else {{
+                errorMessageDiv.textContent = "Invalid username or password. Please try again.";
+                errorMessageDiv.style.color = '#f87171'; // Tailwind red-400
+                setTimeout(() => {{
+                    errorMessageDiv.textContent = "";
+                }}, 3000);
+            }}
         }}
 
-        function showContent(tabName, clickedTab) {{
-            const contents = document.querySelectorAll('.content');
-            contents.forEach(content => {{
-                content.classList.add('hidden');
-                content.classList.remove('active-content');
+        function togglePasswordVisibility() {{
+            const passwordInput = document.getElementById('password-input');
+            const toggleIcon = document.getElementById('toggle-password-icon');
+            if (passwordInput.type === 'password') {{
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            }} else {{
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }}
+        }}
+
+        const videoPlayer = videojs('engineer-babu-player');
+        const iframePlayer = document.getElementById('iframe-player');
+        const playerContainer = document.getElementById('player-container');
+        const videoControls = document.getElementById('video-controls');
+        // Removed PDF viewer related elements
+
+        function playVideo(url) {{
+            const videoPlayer = videojs('engineer-babu-player');
+            const iframePlayer = document.getElementById('iframe-player');
+            const playerContainer = document.getElementById('player-container');
+            const videoControls = document.getElementById('video-controls');
+
+            currentVideoUrl = htmlUnescape(url); // Store the unescaped URL
+
+            videoPlayer.pause();
+            videoPlayer.reset();
+            iframePlayer.classList.add('hidden');
+            videoPlayer.el().classList.add('hidden');
+            videoControls.classList.add('hidden');
+
+            if (url.includes("player.muftukmall.site") || url.includes("dragoapi.vercel.app") || url.includes("anonymouspwplayer-b99f57957198.herokuapp.com") || url.includes("khanglobalstudies.com/player") || url.includes("extractor.workers.dev/player")) {{
+                // Use iframe for external player URLs
+                iframePlayer.src = url;
+                iframePlayer.classList.remove('hidden');
+                playerContainer.style.paddingTop = '56.25%'; // 16:9 aspect ratio
+                videoControls.classList.add('hidden'); // No controls for iframe
+            }} else {{
+                // Use video.js for direct video URLs
+                videoPlayer.src({{ src: url, type: url.includes(".m3u8") ? "application/x-mpegURL" : "video/mp4" }});
+                videoPlayer.load();
+                videoPlayer.play();
+                videoPlayer.el().classList.remove('hidden');
+                playerContainer.style.paddingTop = '56.25%'; // 16:9 aspect ratio
+                videoControls.classList.remove('hidden'); // Show controls for video.js player
+            }}
+
+            window.location.hash = encodeURIComponent(currentVideoUrl); // Update hash for direct video links
+
+            // Hide PDF viewer if it was open
+            // Removed code to hide PDF viewer container
+        }}
+
+        function openPdf(url) {{
+            const unescapedUrl = htmlUnescape(url); // Get the original unescaped URL
+            window.open(unescapedUrl, '_blank'); // Open in a new tab
+            window.location.hash = encodeURIComponent(unescapedUrl); // Update hash
+        }}
+        
+        function showContent(tabId, clickedTab) {{
+            // Hide all content divs
+            document.querySelectorAll('.content').forEach(div => {{
+                div.classList.add('hidden');
+                div.classList.remove('active-content');
             }});
 
-            const tabs = document.querySelectorAll('.tab');
-            tabs.forEach(tab => {{
+            // Deactivate all tabs
+            document.querySelectorAll('.tab').forEach(tab => {{
                 tab.classList.remove('active-tab');
             }});
 
-            const selectedContent = document.getElementById(tabName);
-            if (selectedContent) {{
-                selectedContent.classList.remove('hidden');
-                selectedContent.classList.add('active-content');
-            }}
+            // Show the selected content div
+            document.getElementById(tabId).classList.remove('hidden');
+            document.getElementById(tabId).classList.add('active-content');
 
-            if (clickedTab) {{
-                clickedTab.classList.add('active-tab');
+            // Activate the clicked tab
+            clickedTab.classList.add('active-tab');
+        }}
+
+        function filterLinks() {{
+            const input = document.getElementById('searchInput');
+            const filter = input.value.toLowerCase();
+            const activeContentId = document.querySelector('.content.active-content').id;
+            const listDiv = document.querySelector(`#${activeContentId} .${activeContentId}-list`);
+            const links = listDiv.getElementsByTagName('a');
+
+            for (let i = 0; i < links.length; i++) {{
+                const text = links[i].textContent || links[i].innerText;
+                if (text.toLowerCase().indexOf(filter) > -1) {{
+                    links[i].style.display = "";
+                }} else {{
+                    links[i].style.display = "none";
+                }}
             }}
         }}
 
-        document.addEventListener('DOMContentLoaded', () => {{
-            passwordPrompt.style.display = 'block';
-            applyTheme(); // Apply theme when the page loads
-        }});
+        function findVideoLocation() {{
+            if (currentVideoUrl) {{
+                const targetLink = document.querySelector(`[data-original-url="${encodeURIComponent(currentVideoUrl)}"]`);
+                if (targetLink) {{
+                    // Switch to video tab if not active
+                    showContent('videos', document.querySelector('[data-tab="videos"]'));
+                    
+                    targetLink.classList.add('highlight-link');
+                    targetLink.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                    setTimeout(() => {{
+                        targetLink.classList.remove('highlight-link');
+                    }}, 5000); // Remove highlight after 5 seconds
+                }} else {{
+                    alert("Original video link not found in the list.");
+                }}
+            }} else {{
+                alert("No video is currently playing to locate.");
+            }}
+        }}
+        // Removed findPdfLocation function
+        // Removed returnToLists function as PDF viewer is removed
+
     </script>
 </body>
 </html>
-'''
-    return html_template
+"""
+    os.makedirs(OUTPUT_HTML_FOLDER, exist_ok=True)
+    file_path = os.path.join(OUTPUT_HTML_FOLDER, file_name)
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(html_template)
+    return file_path
 
-# Function to download video using FFmpeg (not used in this HTML generation context)
-def download_video(url, output_path):
-    command = f"ffmpeg -i {url} -c copy {output_path}"
-    subprocess.run(command, shell=True, check=True)
+# --- Bot Commands (No changes needed here for UX/Config) ---
 
-# Command handler for /start
-@app.on_message(filters.command("start"))
-async def start(client: Client, message: Message):
-    await message.reply_text("𝐖𝐞𝐥𝐜𝐨𝐦𝐞! 𝐏𝐥𝐞𝐚𝐬𝐞 𝐮𝐩𝐥𝐨𝐚𝐝 𝐚 .𝐭𝐱𝐭 𝐟𝐢𝐥𝐞 𝐜𝐨𝐧𝐭𝐚𝐢𝐧𝐢𝐧𝐠 𝐔𝐑𝐋𝐬.")
+@app.on_message(filters.command("start") & filters.private)
+async def start_command(client, message: Message):
+    keyboard = ReplyKeyboardMarkup(
+        [
+            [KeyboardButton("Generate HTML 📄")],
+            [KeyboardButton("Bot Settings ⚙️")]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=False
+    )
+    await message.reply_text(
+        "👋 Welcome! I can help you generate HTML pages from your text files containing names and URLs.\n\n"
+        "Send me a `.txt` file with your links in the format `Name: URL` to get started.\n\n"
+        "Use the buttons below to navigate.",
+        reply_markup=keyboard
+    )
 
-# Message handler for file uploads
-@app.on_message(filters.document)
-async def handle_file(client: Client, message: Message):
-    print("Received a document.") # Log step
-    # Initialize file_name to an empty string to prevent NameError in except block
-    file_name = "" 
-    downloaded_file_path = "" # Also initialize this for similar reason
+@app.on_message(filters.command("help") & filters.private)
+async def help_command(client, message: Message):
+    help_text = (
+        "**Here's how I work:**\n\n"
+        "1.  **Send me a `.txt` file:** The file should contain `Name: URL` on each line.\n"
+        "    Example:\n"
+        "    `Video 1: https://example.com/video1.mp4`\n"
+        "    `Lecture Notes: https://example.com/notes.pdf`\n"
+        "    `Other Link: https://example.com/resource`\n\n"
+        "2.  I will process the file, categorize the links into Videos, PDFs, and Others, "
+        "    and then generate an HTML file for you.\n\n"
+        "3.  **Bot Settings (Admin/Sudo Only):**\n"
+        "    -   `/settings`: View current bot settings.\n"
+        "    -   `/setowner <user_id>`: Change owner ID.\n"
+        "    -   `/setsudo <user_ids>`: Add/remove sudo users (comma-separated).\n"
+        "    -   `/sethtmluser <username>`: Set HTML file username.\n"
+        "    -   `/sethtmlpass <password>`: Set HTML file password.\n"
+        "    -   `/setdisplayname <name>`: Set your display name for HTML.\n"
+        "    -   `/setchannel <link>`: Set your Telegram channel link.\n"
+        "    -   `/setcontact <link>`: Set your contact link.\n\n"
+        "Remember to use the buttons or send your `.txt` file!"
+    )
+    await message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)
+
+@app.on_message(filters.command("settings") & filters.private)
+@authorized_users_only
+async def show_settings(client, message: Message):
+    settings_text = (
+        "**Current Bot Settings:**\n"
+        f"**Owner ID:** `{config['OWNER_ID']}`\n"
+        f"**Sudo Users:** `{', '.join(map(str, config['SUDO_USERS'])) if config['SUDO_USERS'] else 'None'}`\n"
+        f"**HTML Username:** `{config['HTML_FILE_USERNAME']}`\n"
+        f"**HTML Password:** `{config['HTML_FILE_PASSWORD']}`\n"
+        f"**Display Name:** `{config['YOUR_NAME_FOR_DISPLAY']}`\n"
+        f"**Channel Link:** `{config['YOUR_CHANNEL_LINK'] or 'Not Set'}`\n"
+        f"**Contact Link:** `{config['CONTACT_LINK'] or 'Not Set'}`\n\n"
+        "Use `/set<setting_name> <value>` to change them. (e.g., `/sethtmluser newuser`)"
+    )
+    await message.reply_text(settings_text, parse_mode=ParseMode.MARKDOWN)
+
+@app.on_message(filters.command("setowner") & filters.private)
+@authorized_users_only
+async def set_owner_id(client, message: Message):
+    if len(message.command) < 2:
+        await message.reply_text("Usage: `/setowner <user_id>`")
+        return
     try:
-        # Check if the file is a .txt file
-        if not message.document.file_name.endswith(".txt"):
-            await message.reply_text("Please upload a .txt file.")
-            print("File is not a .txt file.") # Log step
-            return
+        new_owner_id = int(message.command[1])
+        if new_owner_id <= 0:
+            raise ValueError("User ID must be a positive integer.")
+        config["OWNER_ID"] = new_owner_id
+        save_config_to_file()
+        await message.reply_text(f"Owner ID updated to `{new_owner_id}`.")
+    except ValueError:
+        await message.reply_text("Invalid User ID. Please provide a valid integer.")
 
-        # Download the file
-        file_name = message.document.file_name # Assign file_name here
-        print(f"Attempting to download file: {file_name}") # Log step
-        downloaded_file_path = await message.download()
-        print(f"File downloaded to: {downloaded_file_path}") # Log step
+@app.on_message(filters.command("setsudo") & filters.private)
+@authorized_users_only
+async def set_sudo_users(client, message: Message):
+    if len(message.command) < 2:
+        config["SUDO_USERS"] = []
+        save_config_to_file()
+        await message.reply_text("Sudo users list cleared.")
+        return
+    
+    user_ids_str = message.command[1]
+    try:
+        new_sudo_users = []
+        for uid_str in user_ids_str.split(','):
+            uid = int(uid_str.strip())
+            if uid <= 0:
+                raise ValueError("User ID must be a positive integer.")
+            new_sudo_users.append(uid)
+        
+        config["SUDO_USERS"] = list(set(new_sudo_users)) # Ensure unique IDs
+        save_config_to_file()
+        await message.reply_text(f"Sudo users updated to `{', '.join(map(str, config['SUDO_USERS']))}`.")
+    except ValueError:
+        await message.reply_text("Invalid User ID(s). Please provide comma-separated valid integers.")
 
-        # Ensure the output HTML folder exists
-        os.makedirs(OUTPUT_HTML_FOLDER, exist_ok=True)
-        print(f"Ensured output folder exists: {OUTPUT_HTML_FOLDER}") # Log step
+@app.on_message(filters.command("sethtmluser") & filters.private)
+@authorized_users_only
+async def set_html_username(client, message: Message):
+    if len(message.command) < 2:
+        await message.reply_text("Usage: `/sethtmluser <username>`")
+        return
+    new_username = message.text.split(None, 1)[1].strip()
+    config["HTML_FILE_USERNAME"] = new_username
+    save_config_to_file()
+    await message.reply_text(f"HTML file username updated to `{new_username}`.")
 
-        # Read the file content
-        print(f"Reading content from {downloaded_file_path}") # Log step
-        with open(downloaded_file_path, "r") as f:
-            file_content = f.read()
-        print("File content read successfully.") # Log step
+@app.on_message(filters.command("sethtmlpass") & filters.private)
+@authorized_users_only
+async def set_html_password(client, message: Message):
+    if len(message.command) < 2:
+        await message.reply_text("Usage: `/sethtmlpass <password>`")
+        return
+    new_password = message.text.split(None, 1)[1].strip()
+    config["HTML_FILE_PASSWORD"] = new_password
+    save_config_to_file()
+    await message.reply_text(f"HTML file password updated to `{new_password}`.")
 
-        # Extract names and URLs (no subjects)
-        print("Extracting names and URLs.") # Log step
-        urls = extract_names_and_urls(file_content)
-        print(f"Extracted {len(urls)} URLs.") # Log step
+@app.on_message(filters.command("setdisplayname") & filters.private)
+@authorized_users_only
+async def set_display_name(client, message: Message):
+    if len(message.command) < 2:
+        await message.reply_text("Usage: `/setdisplayname <name>`")
+        return
+    new_name = message.text.split(None, 1)[1].strip()
+    config["YOUR_NAME_FOR_DISPLAY"] = new_name
+    save_config_to_file()
+    await message.reply_text(f"Display name updated to `{new_name}`.")
 
-        # Categorize URLs
-        print("Categorizing URLs.") # Log step
-        videos, pdfs, others = categorize_urls(urls)
-        print(f"Categorized: {len(videos)} videos, {len(pdfs)} PDFs, {len(others)} others.") # Log step
+@app.on_message(filters.command("setchannel") & filters.private)
+@authorized_users_only
+async def set_channel_link(client, message: Message):
+    if len(message.command) < 2:
+        config["YOUR_CHANNEL_LINK"] = ""
+        save_config_to_file()
+        await message.reply_text("Channel link cleared. Using generic link if not set.")
+        return
+    
+    new_link = message.text.split(None, 1)[1].strip()
+    if not (new_link.startswith("http://") or new_link.startswith("https://")):
+        await message.reply_text("Invalid URL. Please provide a link starting with `http://` or `https://`.")
+        return
 
-        # Generate HTML
-        print("Generating HTML content.") # Log step
-        html_content = generate_html(file_name, videos, pdfs, others)
-        print("HTML content generated.") # Log step
+    config["YOUR_CHANNEL_LINK"] = new_link
+    save_config_to_file()
+    await message.reply_text(f"Channel link updated to `{new_link}`.")
 
-        # Construct the full path for the new HTML file within the output folder
-        html_file_name = file_name.replace(".txt", ".html")
-        html_file_path = os.path.join(OUTPUT_HTML_FOLDER, html_file_name)
-        print(f"HTML file will be saved to: {html_file_path}") # Log step
+@app.on_message(filters.command("setcontact") & filters.private)
+@authorized_users_only
+async def set_contact_link(client, message: Message):
+    if len(message.command) < 2:
+        config["CONTACT_LINK"] = ""
+        save_config_to_file()
+        await message.reply_text("Contact link cleared. Using generic link if not set.")
+        return
+    
+    new_link = message.text.split(None, 1)[1].strip()
+    if not (new_link.startswith("http://") or new_link.startswith("https://")):
+        await message.reply_text("Invalid URL. Please provide a link starting with `http://` or `https://`.")
+        return
 
-        with open(html_file_path, "w") as f:
-            f.write(html_content)
-        print("HTML file saved successfully.") # Log step
+    config["CONTACT_LINK"] = new_link
+    save_config_to_file()
+    await message.reply_text(f"Contact link updated to `{new_link}`.")
 
-        # Send the HTML file to the user
-        print(f"Sending HTML file {html_file_path} to user.") # Log step
-        await message.reply_document(document=html_file_path, caption="✅ 𝐒𝐮𝐜𝐜𝐞𝐬𝐬𝐟𝐮𝐥𝐥𝐲 𝐃𝐨𝐧𝐞\n\n पुरुषोत्तम जांगिड़™")
-        print("HTML file sent to user.") # Log step
+@app.on_message(filters.regex("Generate HTML 📄") & filters.private)
+async def generate_html_button(client, message: Message):
+    await message.reply_text(
+        "Please send me a `.txt` file containing the names and URLs."
+    )
 
-        # Forward the .txt file to the channel
-        print(f"Forwarding original .txt file {downloaded_file_path} to channel.") # Log step
-        await client.send_document(chat_id=CHANNEL_USERNAME, document=downloaded_file_path)
-        print("Original .txt file forwarded.") # Log step
+@app.on_message(filters.regex("Bot Settings ⚙️") & filters.private)
+@authorized_users_only
+async def bot_settings_button(client, message: Message):
+    await show_settings(client, message)
 
-        # Clean up files
-        os.remove(downloaded_file_path) # Remove the downloaded .txt file
-        print(f"Cleaned up downloaded .txt file: {downloaded_file_path}") # Log step
-        # The generated HTML file remains in the 'generated_html' folder
-        # If you want to remove it after sending, uncomment the next line:
-        # os.remove(html_file_path)
+@app.on_message(filters.document & filters.private)
+async def handle_document(client, message: Message):
+    if message.document and message.document.file_name.endswith(".txt"):
+        try:
+            temp_file_path = await message.download()
+            with open(temp_file_path, "r", encoding="utf-8") as f:
+                file_content = f.read()
 
-    except Exception as e:
-        error_message = f"फ़ाइल '{file_name if file_name else 'unknown file'}' को संसाधित करते समय एक एरर हुई: {e}"
-        print(error_message) # कंसोल पर एरर लॉग करें
-        await message.reply_text(f"❌ एक एरर हुई: {error_message}। कृपया बाद में पुनः प्रयास करें या सहायता से संपर्क करें।")
-        # यदि डाउनलोड हो गया लेकिन प्रसंस्करण विफल हो गया तो सफाई का प्रयास करें
-        if downloaded_file_path and os.path.exists(downloaded_file_path):
-            os.remove(downloaded_file_path)
-            print(f"Cleaned up downloaded .txt file after error: {downloaded_file_path}")
+            data = extract_names_and_urls(file_content)
+            if not data:
+                await message.reply_text(
+                    "The `.txt` file is empty or does not contain data in the format `Name: URL`."
+                )
+                os.remove(temp_file_path)
+                return
 
-# बॉट चलाएँ
-if __name__ == "__main__":
-    print("बॉट चल रहा है...")
-    app.run()
+            videos, pdfs, others = categorize_urls(data)
+
+            output_file_name = f"{os.path.splitext(message.document.file_name)[0]}.html"
+            html_file_path = generate_html(output_file_name, videos, pdfs, others)
+
+            await message.reply_document(
+                document=html_file_path,
+                caption=f"Here is your generated HTML file: `{output_file_name}`"
+            )
+            os.remove(temp_file_path)
+            os.remove(html_file_path) # Clean up generated HTML file
+        except Exception as e:
+            await message.reply_text(f"An error occurred: `{e}`")
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+    else:
+        await message.reply_text(
+            "Please send a `.txt` file. Other file types are not supported for HTML generation."
+        )
+
+print("Bot is starting...")
+app.run()
