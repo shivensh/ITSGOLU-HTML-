@@ -16,7 +16,7 @@ from pyrogram.types import (
 from pyrogram.enums import ParseMode
 
 # =========================================================
-#       BOT CONFIGURATION - EASY TO FILL
+#             BOT CONFIGURATION - EASY TO FILL
 # =========================================================
 
 # 1. API ID (Get from my.telegram.org)
@@ -44,12 +44,12 @@ OWNER_ID = int(os.getenv("OWNER_ID", 7740514033))
 # 5. DEFAULT HTML FILE USERNAME (for generated HTML pages)
 #    - Environment Variable: HTML_FILE_USERNAME
 #    - Default if not set: "user"
-DEFAULT_HTML_USERNAME = os.getenv("HTML_FILE_USERNAME", "ITSGOLU")
+DEFAULT_HTML_USERNAME = os.getenv("HTML_FILE_USERNAME", "user")
 
 # 6. DEFAULT HTML FILE PASSWORD (for generated HTML pages)
 #    - Environment Variable: HTML_FILE_PASSWORD
 #    - Default if not set: "pass"
-DEFAULT_HTML_PASSWORD = os.getenv("HTML_FILE_PASSWORD", "ITSGOLU")
+DEFAULT_HTML_PASSWORD = os.getenv("HTML_FILE_PASSWORD", "pass")
 
 # 7. YOUR DISPLAY NAME (shown in generated HTML pages)
 #    - Environment Variable: YOUR_NAME_FOR_DISPLAY
@@ -67,8 +67,8 @@ DEFAULT_CHANNEL_LINK = os.getenv("YOUR_CHANNEL_LINK", "https://t.me/+G2PAXJs-fUM
 DEFAULT_CONTACT_LINK = os.getenv("CONTACT_LINK", "https://t.me/+G2PAXJs-fUM1OWFl")
 
 # 10. SUDO USERS (list of Telegram User IDs who can also use admin commands)
-#      - Environment Variable: SUDO_USERS (comma-separated, e.g., "12345,67890")
-#      - Default if not set: []
+#     - Environment Variable: SUDO_USERS (comma-separated, e.g., "12345,67890")
+#     - Default if not set: []
 DEFAULT_SUDO_USERS = [7740514033]
 sudo_users_env = os.getenv("SUDO_USERS")
 if sudo_users_env:
@@ -80,7 +80,7 @@ if sudo_users_env:
 
 
 # =========================================================
-#       DO NOT EDIT BELOW THIS LINE UNLESS YOU KNOW WHAT YOU ARE DOING!
+#     DO NOT EDIT BELOW THIS LINE UNLESS YOU KNOW WHAT YOU ARE DOING!
 # =========================================================
 
 # Filename for persistent configuration (managed by the bot)
@@ -269,8 +269,7 @@ def generate_html(file_name, videos, pdfs, others):
     file_name_without_extension = os.path.splitext(file_name)[0]
 
     video_links = "".join(f'<a href="#" onclick="playVideo(\'{url}\')" data-original-url="{url}"><svg class="w-5 h-5 mr-3 text-red-400" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zm3.455 1.636A.5.5 0 015.8 7h8.4a.5.5 0 01.345.864L10 12.416 5.455 7.636z"></path></svg>{name}</a>' for name, url in videos)
-    # Modified pdf_links to call openPdf in a new tab
-    pdf_links = "".join(f'<a href="#" onclick="openPdf(\'{html.escape(url)}\'); return false;" data-original-url="{url}"><svg class="w-5 h-5 mr-3 text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.414L16.586 7A2 2 0 0117 8.414V16a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm6 1a1 1 0 100 2h3a1 1 0 100-2h-3zm-3 8a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"></path></svg>{name}</a>' for name, url in pdfs)
+    pdf_links = "".join(f'<a href="#" onclick="openPdf(\'{html.escape(url)}\', \'{html.escape(name)}\'); return false;" data-original-url="{url}"><svg class="w-5 h-5 mr-3 text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.414L16.586 7A2 2 0 0117 8.414V16a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm6 1a1 1 0 100 2h3a1 1 0 100-2h-3zm-3 8a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"></path></svg>{name}</a>' for name, url in pdfs)
     other_links = "".join(f'<a href="{url}" target="_blank"><svg class="w-5 h-5 mr-3 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 2 0 01-1 1h-2a1 1 0 01-1-1v-3a1 2 0 00-1-1H9a1 1 0 00-1 1v3a1 2 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clip-rule="evenodd"></path></svg>{name}</a>' for name, url in others)
 
     html_template = f"""
@@ -399,6 +398,43 @@ def generate_html(file_name, videos, pdfs, others):
             100% {{ transform: rotate(360deg); }}
         }}
 
+        .pdf-dropdown-menu {{
+            position: relative;
+            background-color: #374151;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            padding: 0.5rem;
+            min-width: 60px;
+            text-align: center;
+        }}
+        html.light .pdf-dropdown-menu {{
+            background-color: #edf2f7;
+        }}
+        .pdf-dropdown-menu button {{
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0.5rem;
+            margin: 0;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            transition: background-color 0.2s ease;
+        }}
+        html.dark .pdf-dropdown-menu button {{
+            background-color: #4b5563;
+            color: white;
+        }}
+        html.light .pdf-dropdown-menu button {{
+            background-color: #d1d5db;
+            color: #1f2937;
+        }}
+        html.dark .pdf-dropdown-menu button:hover {{
+            background-color: #6b7280;
+        }}
+        html.light .pdf-dropdown-menu button:hover {{
+            background-color: #e5e7eb;
+        }}
         .highlight-link {{
             border: 2px solid;
             animation: highlight-pulse 1s infinite alternate;
@@ -418,18 +454,18 @@ def generate_html(file_name, videos, pdfs, others):
         <button id="password-theme-toggle" class="theme-toggle-btn absolute top-4 right-4">
             <i class="fas fa-moon"></i> </button>
         <input type="text" id="username-input" placeholder="Enter Username" required
-                class="w-full p-3 mb-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 input-field">
+               class="w-full p-3 mb-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 input-field">
         
         <div class="relative mb-6">
             <input type="password" id="password-input" placeholder="Enter Password" required
-                    class="w-full p-3 pr-10 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 input-field">
+                   class="w-full p-3 pr-10 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 input-field">
             <span class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer" onclick="togglePasswordVisibility()">
                 <i id="toggle-password-icon" class="fas fa-eye"></i> </i>
             </span>
         </div>
 
         <button onclick="checkPassword()"
-                 class="font-bold py-3 px-8 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-lg btn-blue">
+                class="font-bold py-3 px-8 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-lg btn-blue">
             Access Content
         </button>
         <div class="error-message mt-4 font-semibold error-text"></div>
@@ -466,6 +502,39 @@ def generate_html(file_name, videos, pdfs, others):
             </div>
         </div>
 
+        <div id="pdf-viewer-container" class="hidden mb-8 bg-gray-800 rounded-lg overflow-hidden relative" style="height: 85vh;">
+            <iframe id="pdf-iframe-viewer" class="absolute top-0 left-0 w-full h-full" allowfullscreen></iframe>
+            <div class="absolute top-4 right-4 flex flex-col gap-2">
+                <button id="pdf-menu-toggle-btn"
+                        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full text-sm shadow-lg z-10 hidden">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div id="pdf-dropdown-menu"
+                     class="hidden flex-col gap-2 bg-gray-700 p-2 rounded-lg shadow-md z-20">
+                    <button id="download-pdf-btn" onclick="triggerPdfDownload()"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full text-sm shadow-lg">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button id="share-pdf-btn"
+                            class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full text-sm shadow-lg">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
+                </div>
+                <button id="fullscreen-pdf-btn" onclick="togglePdfFullscreen()"
+                        class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full text-sm shadow-lg z-10 hidden">
+                    <i class="fas fa-expand"></i>
+                </button>
+                <button id="pdf-location-btn" onclick="findPdfLocation()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full text-sm shadow-lg z-10 hidden">
+                    <i class="fas fa-map-marker-alt"></i>
+                </button>
+                <button id="close-pdf-btn" onclick="returnToLists()"
+                        class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full text-sm shadow-lg z-10">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
         <div class="flex flex-wrap justify-center mb-6 gap-2">
             <div class="tab flex-1 min-w-[100px] text-center py-3 px-4 font-semibold rounded-md cursor-pointer transition-all duration-300 tab-bg tab-hover active-tab"
                  data-tab="videos" onclick="showContent('videos', this)">Videos</div>
@@ -477,9 +546,9 @@ def generate_html(file_name, videos, pdfs, others):
 
         <div class="mb-6 flex gap-2">
             <input type="text" id="searchInput" onkeyup="filterLinks()" placeholder="Search links..."
-                    class="flex-1 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 input-field">
+                   class="flex-1 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 input-field">
             <button onclick="filterLinks()"
-                     class="btn-blue py-3 px-6 rounded-md font-semibold transition-all duration-300">
+                    class="btn-blue py-3 px-6 rounded-md font-semibold transition-all duration-300">
                 <i class="fas fa-search"></i>
             </button>
         </div>
@@ -520,6 +589,8 @@ def generate_html(file_name, videos, pdfs, others):
         const htmlElement = document.documentElement;
 
         // Global variables for currently active media
+        let currentPdfUrl = ''; // Stores unescaped PDF URL
+        let currentPdfName = '';
         let currentVideoUrl = ''; // Stores unescaped Video URL
 
         // Helper function to unescape HTML entities
@@ -573,6 +644,22 @@ def generate_html(file_name, videos, pdfs, others):
                     applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
                 }});
             }}
+
+            const pdfMenuToggleButton = document.getElementById('pdf-menu-toggle-btn');
+            const pdfDropdownMenu = document.getElementById('pdf-dropdown-menu');
+
+            if (pdfMenuToggleButton) {{
+                pdfMenuToggleButton.addEventListener('click', (event) => {{
+                    pdfDropdownMenu.classList.toggle('hidden');
+                    event.stopPropagation();
+                }});
+            }}
+
+            document.addEventListener('click', (event) => {{
+                if (pdfDropdownMenu && !pdfDropdownMenu.contains(event.target) && pdfMenuToggleButton && !pdfMenuToggleButton.contains(event.target)) {{
+                    pdfDropdownMenu.classList.add('hidden');
+                }}
+            }});
         }});
 
         function checkPassword() {{
@@ -599,38 +686,32 @@ def generate_html(file_name, videos, pdfs, others):
                             'liveDisplay',
                             'remainingTimeDisplay',
                             'customControlSpacer',
-                            'progressControl',
+                            'playbackRateMenuButton',
+                            'chaptersButton',
+                            'descriptionsButton',
+                            'subsCapsButton',
+                            'audioTrackButton',
                             'fullscreenToggle'
                         ]
                     }}
                 }});
+                document.getElementById('engineer-babu-player').classList.remove('hidden');
+                document.getElementById('iframe-player').classList.add('hidden');
+                
+                document.getElementById('pdf-viewer-container').classList.add('hidden');
+                // Video controls are hidden by default and shown if a video is loaded by playVideo
+                document.getElementById('video-controls').classList.add('hidden'); 
 
-                // Check for hash in URL and highlight link
-                const hash = window.location.hash.substring(1);
-                if (hash) {{
-                    const targetLink = document.querySelector(`[data-original-url="${decodeURIComponent(hash)}"]`);
-                    if (targetLink) {{
-                        targetLink.classList.add('highlight-link');
-                        targetLink.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
-                        // Remove highlight after some time
-                        setTimeout(() => {{
-                            targetLink.classList.remove('highlight-link');
-                        }}, 5000);
-                    }}
-                }}
-
+                showContent('videos', document.querySelector('.tab[data-tab="videos"]'));
             }} else {{
-                errorMessageDiv.textContent = "Invalid username or password. Please try again.";
-                errorMessageDiv.style.color = '#f87171'; // Tailwind red-400
-                setTimeout(() => {{
-                    errorMessageDiv.textContent = "";
-                }}, 3000);
+                errorMessageDiv.textContent = "Incorrect username or password. Access denied.";
             }}
         }}
 
         function togglePasswordVisibility() {{
             const passwordInput = document.getElementById('password-input');
             const toggleIcon = document.getElementById('toggle-password-icon');
+
             if (passwordInput.type === 'password') {{
                 passwordInput.type = 'text';
                 toggleIcon.classList.remove('fa-eye');
@@ -642,337 +723,881 @@ def generate_html(file_name, videos, pdfs, others):
             }}
         }}
 
-        const videoPlayer = videojs('engineer-babu-player');
-        const iframePlayer = document.getElementById('iframe-player');
-        const playerContainer = document.getElementById('player-container');
-        const videoControls = document.getElementById('video-controls');
-        // Removed PDF viewer related elements
+        async function copyToClipboard(text) {{
+            try {{
+                await navigator.clipboard.writeText(text);
+                alert('Link copied to clipboard!');
+            }} catch (err) {{
+                console.error('Failed to copy text using Clipboard API:', err);
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {{
+                    document.execCommand('copy');
+                    alert('Link copied to clipboard!');
+                }} catch (err) {{
+                    console.error('Fallback: Oops, unable to copy', err);
+                    prompt("Copy this link manually:", text);
+                }}
+                document.body.removeChild(textArea);
+            }}
+        }}
 
         function playVideo(url) {{
+            console.log("Attempting to play video:", url);
             const videoPlayer = videojs('engineer-babu-player');
             const iframePlayer = document.getElementById('iframe-player');
-            const playerContainer = document.getElementById('player-container');
+            const videoElement = document.getElementById('engineer-babu-player');
+            const videoPlayerContainer = document.getElementById('player-container');
             const videoControls = document.getElementById('video-controls');
+            
+            const pdfViewer = document.getElementById('pdf-viewer-container');
+            const pdfIframe = document.getElementById('pdf-iframe-viewer');
+            const closePdfBtn = document.getElementById('close-pdf-btn');
+            const fullscreenPdfBtn = document.getElementById('fullscreen-pdf-btn');
+            const pdfMenuToggleButton = document.getElementById('pdf-menu-toggle-btn');
+            const pdfDropdownMenu = document.getElementById('pdf-dropdown-menu');
+            const pdfLocationBtn = document.getElementById('pdf-location-btn');
 
-            currentVideoUrl = htmlUnescape(url); // Store the unescaped URL
+            // Clear PDF state
+            pdfViewer.classList.add('hidden');
+            if (pdfIframe) {{ pdfIframe.src = ""; }}
+            closePdfBtn.classList.add('hidden');
+            fullscreenPdfBtn.classList.add('hidden');
+            pdfMenuToggleButton.classList.add('hidden');
+            pdfDropdownMenu.classList.add('hidden');
+            pdfLocationBtn.classList.add('hidden');
 
-            videoPlayer.pause();
-            videoPlayer.reset();
-            iframePlayer.classList.add('hidden');
-            videoPlayer.el().classList.add('hidden');
-            videoControls.classList.add('hidden');
+            // Set Video state
+            videoPlayerContainer.classList.remove('hidden');
+            videoControls.classList.remove('hidden'); // Show video controls
+            document.querySelector('.flex.flex-wrap.justify-center.mb-6.gap-2').classList.remove('hidden'); // Ensure tabs are visible
 
-            if (url.includes("player.muftukmall.site") || url.includes("dragoapi.vercel.app") || url.includes("anonymouspwplayer-b99f57957198.herokuapp.com") || url.includes("khanglobalstudies.com/player") || url.includes("extractor.workers.dev/player")) {{
-                // Use iframe for external player URLs
-                iframePlayer.src = url;
+            currentVideoUrl = url; // Store the unescaped URL
+
+            const isIframeUrl = url.includes('api.extractor.workers.dev') ||
+                                url.includes('dragoapi.vercel.app') ||
+                                url.includes('anonymouspwplayer-b99f57957198.herokuapp.com') ||
+                                url.includes('player.muftukmall.site') ||
+                                url.includes('video.pablocoder.eu.org/appx-zip');
+
+            if (isIframeUrl) {{
+                console.log("Using iframe for URL:", url);
+                videoPlayer.pause();
+                videoPlayer.src({{ src: "", type: "video/mp4" }}); // Clear video.js source
+                videoElement.classList.add('hidden');
                 iframePlayer.classList.remove('hidden');
-                playerContainer.style.paddingTop = '56.25%'; // 16:9 aspect ratio
-                videoControls.classList.add('hidden'); // No controls for iframe
-            }} else {{
-                // Use video.js for direct video URLs
-                videoPlayer.src({{ src: url, type: url.includes(".m3u8") ? "application/x-mpegURL" : "video/mp4" }});
+                iframePlayer.src = url;
+            }} else if (url.includes('.m3u8')) {{
+                console.log("Using video.js for m3u8:", url);
+                iframePlayer.src = "";
+                iframePlayer.classList.add('hidden');
+                videoElement.classList.remove('hidden');
+                videoPlayer.src({{ src: url, type: 'application/x-mpegURL' }});
                 videoPlayer.load();
-                videoPlayer.play();
-                videoPlayer.el().classList.remove('hidden');
-                playerContainer.style.paddingTop = '56.25%'; // 16:9 aspect ratio
-                videoControls.classList.remove('hidden'); // Show controls for video.js player
+                videoPlayer.play().catch(error => {{
+                    console.error("Video playback failed (m3u8, direct link, or HLS issue):", error);
+                    window.open(url, '_blank');
+                }});
+            }} else if (url.includes('.mp4')) {{
+                console.log("Using video.js for mp4:", url);
+                iframePlayer.src = "";
+                iframePlayer.classList.add('hidden');
+                videoElement.classList.remove('hidden');
+                videoPlayer.src({{ src: url, type: 'video/mp4' }});
+                videoPlayer.load();
+                videoPlayer.play().catch(error => {{
+                    console.error("Video playback failed (mp4, direct link):", error);
+                    window.open(url, '_blank');
+                }});
+            }} else {{
+                console.log("Opening URL in new tab (unhandled type):", url);
+                window.open(url, '_blank');
+                return;
             }}
-
-            window.location.hash = encodeURIComponent(currentVideoUrl); // Update hash for direct video links
-
-            // Hide PDF viewer if it was open
-            // Removed code to hide PDF viewer container
         }}
 
-        function openPdf(url) {{
-            const unescapedUrl = htmlUnescape(url); // Get the original unescaped URL
-            window.open(unescapedUrl, '_blank'); // Open in a new tab
-            window.location.hash = encodeURIComponent(unescapedUrl); // Update hash
-        }}
-        
-        function showContent(tabId, clickedTab) {{
-            // Hide all content divs
-            document.querySelectorAll('.content').forEach(div => {{
-                div.classList.add('hidden');
-                div.classList.remove('active-content');
+        function openPdf(url, name) {{
+            const videoPlayerContainer = document.getElementById('player-container');
+            const videoControls = document.getElementById('video-controls'); // Get video controls
+            const pdfViewer = document.getElementById('pdf-viewer-container');
+            const pdfIframe = document.getElementById('pdf-iframe-viewer');
+            const closePdfBtn = document.getElementById('close-pdf-btn');
+            const fullscreenPdfBtn = document.getElementById('fullscreen-pdf-btn'); 
+            const contentSections = document.querySelectorAll('.content'); 
+            const tabControls = document.querySelector('.flex.flex-wrap.justify-center.mb-6.gap-2'); 
+            const tabs = document.querySelectorAll('.tab'); 
+            const videoJsPlayer = videojs('engineer-babu-player');
+            const pdfMenuToggleButton = document.getElementById('pdf-menu-toggle-btn'); 
+            const pdfDropdownMenu = document.getElementById('pdf-dropdown-menu'); 
+            const downloadPdfBtn = document.getElementById('download-pdf-btn'); 
+            const sharePdfBtn = document.getElementById('share-pdf-btn'); 
+            const pdfLocationBtn = document.getElementById('pdf-location-btn'); 
+
+            currentPdfUrl = htmlUnescape(url); // Store the unescaped version for comparison
+            currentPdfName = htmlUnescape(name); // Store the unescaped version
+
+            // Clear Video state
+            videoJsPlayer.pause();
+            videoJsPlayer.src({{ src: "", type: "video/mp4" }});
+            document.getElementById('iframe-player').src = "";
+            videoPlayerContainer.classList.add('hidden');
+            videoControls.classList.add('hidden'); // Hide video controls
+
+            contentSections.forEach(section => section.classList.add('hidden'));
+            tabs.forEach(tab => {{ 
+                tab.classList.add('hidden');
             }});
+            tabControls.classList.add('hidden');
 
-            // Deactivate all tabs
-            document.querySelectorAll('.tab').forEach(tab => {{
-                tab.classList.remove('active-tab');
-            }});
+            // Set PDF state
+            pdfIframe.src = url; // The 'url' passed here is already HTML-escaped by Python for direct iframe use
+            pdfViewer.classList.remove('hidden');
+            closePdfBtn.classList.remove('hidden');
+            fullscreenPdfBtn.classList.remove('hidden'); 
+            pdfMenuToggleButton.classList.remove('hidden'); 
+            pdfLocationBtn.classList.remove('hidden'); 
 
-            // Show the selected content div
-            document.getElementById(tabId).classList.remove('hidden');
-            document.getElementById(tabId).classList.add('active-content');
-
-            // Activate the clicked tab
-            clickedTab.classList.add('active-tab');
-        }}
-
-        function filterLinks() {{
-            const input = document.getElementById('searchInput');
-            const filter = input.value.toLowerCase();
-            const activeContentId = document.querySelector('.content.active-content').id;
-            const listDiv = document.querySelector(`#${activeContentId} .${activeContentId}-list`);
-            const links = listDiv.getElementsByTagName('a');
-
-            for (let i = 0; i < links.length; i++) {{
-                const text = links[i].textContent || links[i].innerText;
-                if (text.toLowerCase().indexOf(filter) > -1) {{
-                    links[i].style.display = "";
+            sharePdfBtn.onclick = async () => {{ 
+                const shareText = `Check out this PDF: ${{currentPdfName}}\\n${{currentPdfUrl}}`; // Use unescaped stored URLs
+                if (navigator.share) {{
+                    try {{
+                        await navigator.share({{
+                            title: `PDF: ${{currentPdfName}}`,
+                            text: `Check out this PDF: ${{currentPdfName}}`,
+                            url: currentPdfUrl // Use unescaped stored URL
+                        }});
+                        console.log('PDF shared successfully');
+                    }} catch (error) {{
+                        console.error('Error sharing PDF:', error);
+                        copyToClipboard(shareText);
+                    }}
                 }} else {{
-                    links[i].style.display = "none";
+                    copyToClipboard(shareText);
                 }}
+                pdfDropdownMenu.classList.add('hidden');
+            }};
+            downloadPdfBtn.onclick = () => {{
+                triggerPdfDownload();
+                pdfDropdownMenu.classList.add('hidden');
+            }};
+        }}
+
+        function triggerPdfDownload() {{
+            if (currentPdfUrl) {{
+                const link = document.createElement('a');
+                link.href = currentPdfUrl; // Use the unescaped URL
+                const suggestedFileName = (currentPdfName ? currentPdfName.replace(/[^\w\s.-]/g, '') : 'document') + '.pdf';
+                link.download = suggestedFileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }}
+        }}
+
+        function togglePdfFullscreen() {{
+            const pdfIframe = document.getElementById('pdf-iframe-viewer');
+            if (pdfIframe.requestFullscreen) {{
+                pdfIframe.requestFullscreen();
+            }} else if (pdfIframe.mozRequestFullScreen) {{
+                pdfIframe.mozRequestFullScreen();
+            }} else if (pdfIframe.webkitRequestFullscreen) {{
+                pdfIframe.webkitRequestFullscreen();
+            }} else if (pdfIframe.msRequestFullscreen) {{
+                pdfIframe.msRequestFullscreen();
+            }}
+        }}
+
+        function findPdfLocation() {{
+            if (!currentPdfUrl) return;
+            console.log("Attempting to find PDF location for:", currentPdfUrl);
+
+            returnToLists(true); // Switch to PDF tab and show lists
+
+            const pdfList = document.querySelector('#pdfs .pdf-list');
+            const links = pdfList.querySelectorAll('a[data-original-url]'); // Select links with data-original-url
+
+            let foundLink = null;
+            links.forEach(link => {{
+                const linkOriginalUrl = link.getAttribute('data-original-url');
+                console.log("Comparing current PDF URL:", currentPdfUrl, "with link URL:", linkOriginalUrl);
+                if (linkOriginalUrl === currentPdfUrl) {{
+                    foundLink = link;
+                }}
+            }});
+
+            if (foundLink) {{
+                document.querySelectorAll('.highlight-link').forEach(el => {{
+                    el.classList.remove('highlight-link');
+                    el.style.backgroundColor = '';
+                    el.style.borderColor = '';
+                }});
+
+                foundLink.classList.add('highlight-link');
+                foundLink.style.backgroundColor = 'rgba(59, 130, 246, 0.3)';
+                foundLink.style.borderColor = '#3b82f6';
+
+                foundLink.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+
+                setTimeout(() => {{
+                    foundLink.classList.remove('highlight-link');
+                    foundLink.style.backgroundColor = '';
+                    foundLink.style.borderColor = '';
+                }}, 3000);
+            }} else {{
+                alert('Could not find the PDF link in the list.');
             }}
         }}
 
         function findVideoLocation() {{
-            if (currentVideoUrl) {{
-                const targetLink = document.querySelector(`[data-original-url="${encodeURIComponent(currentVideoUrl)}"]`);
-                if (targetLink) {{
-                    // Switch to video tab if not active
-                    showContent('videos', document.querySelector('[data-tab="videos"]'));
-                    
-                    targetLink.classList.add('highlight-link');
-                    targetLink.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
-                    setTimeout(() => {{
-                        targetLink.classList.remove('highlight-link');
-                    }}, 5000); // Remove highlight after 5 seconds
-                }} else {{
-                    alert("Original video link not found in the list.");
+            if (!currentVideoUrl) return;
+            console.log("Attempting to find Video location for:", currentVideoUrl);
+
+            returnToLists(false); // Switch to Video tab and show lists
+
+            const videoList = document.querySelector('#videos .video-list');
+            const links = videoList.querySelectorAll('a[data-original-url]'); // Select links with data-original-url
+
+            let foundLink = null;
+            links.forEach(link => {{
+                const linkOriginalUrl = link.getAttribute('data-original-url');
+                console.log("Comparing current Video URL:", currentVideoUrl, "with link URL:", linkOriginalUrl);
+                if (linkOriginalUrl === currentVideoUrl) {{
+                    foundLink = link;
                 }}
+            }});
+
+            if (foundLink) {{
+                document.querySelectorAll('.highlight-link').forEach(el => {{
+                    el.classList.remove('highlight-link');
+                    el.style.backgroundColor = '';
+                    el.style.borderColor = '';
+                }});
+
+                foundLink.classList.add('highlight-link');
+                foundLink.style.backgroundColor = 'rgba(59, 130, 246, 0.3)';
+                foundLink.style.borderColor = '#3b82f6';
+
+                foundLink.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+
+                setTimeout(() => {{
+                    foundLink.classList.remove('highlight-link');
+                    foundLink.style.backgroundColor = '';
+                    foundLink.style.borderColor = '';
+                }}, 3000);
             }} else {{
-                alert("No video is currently playing to locate.");
+                alert('Could not find the Video link in the list.');
             }}
         }}
-        // Removed findPdfLocation function
-        // Removed returnToLists function as PDF viewer is removed
 
+
+        function returnToLists(keepPdfTabActive = false) {{
+            const videoPlayerContainer = document.getElementById('player-container');
+            const videoControls = document.getElementById('video-controls');
+            const pdfViewer = document.getElementById('pdf-viewer-container');
+            const pdfIframe = document.getElementById('pdf-iframe-viewer');
+            const closePdfBtn = document.getElementById('close-pdf-btn');
+            const fullscreenPdfBtn = document.getElementById('fullscreen-pdf-btn'); 
+            const contentSections = document.querySelectorAll('.content'); 
+            const tabControls = document.querySelector('.flex.flex-wrap.justify-center.mb-6.gap-2'); 
+            const tabs = document.querySelectorAll('.tab'); 
+            const pdfMenuToggleButton = document.getElementById('pdf-menu-toggle-btn'); 
+            const pdfDropdownMenu = document.getElementById('pdf-dropdown-menu'); 
+            const pdfLocationBtn = document.getElementById('pdf-location-btn'); 
+
+            // Hide PDF viewer elements
+            pdfViewer.classList.add('hidden');
+            if (pdfIframe) {{ pdfIframe.src = ""; }} // Clear PDF iframe source
+            closePdfBtn.classList.add('hidden'); 
+            fullscreenPdfBtn.classList.add('hidden'); 
+            pdfMenuToggleButton.classList.add('hidden'); 
+            pdfDropdownMenu.classList.add('hidden'); 
+            pdfLocationBtn.classList.add('hidden'); 
+            currentPdfUrl = '';
+            currentPdfName = '';
+
+            // Hide video controls
+            videoControls.classList.add('hidden');
+            // Do NOT hide videoPlayerContainer here if we want to show lists.
+            // It will be managed by showContent, or remain visible if it's the current player.
+
+            // Show general UI elements
+            tabControls.classList.remove('hidden');
+            tabs.forEach(tab => {{
+                tab.classList.remove('hidden');
+            }});
+            contentSections.forEach(section => section.classList.add('hidden')); // Hide all content sections initially
+
+            if (keepPdfTabActive) {{
+                showContent('pdfs', document.querySelector('.tab[data-tab="pdfs"]'));
+            }} else {{
+                showContent('videos', document.querySelector('.tab[data-tab="videos"]'));
+            }}
+        }}
+
+        function showContent(tabName, clickedTab) {{
+            const contents = document.querySelectorAll('.content');
+            contents.forEach(content => {{
+                content.classList.add('hidden');
+                content.classList.remove('active-content');
+            }});
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {{
+                tab.classList.remove('active-tab');
+            }});
+            const selectedContent = document.getElementById(tabName);
+            if (selectedContent) {{
+                selectedContent.classList.remove('hidden');
+                selectedContent.classList.add('active-content');
+            }}
+
+            if (clickedTab) {{
+                clickedTab.classList.add('active-tab');
+            }}
+            filterLinks();
+            
+            // Manage player visibility when switching tabs
+            const videoPlayerContainer = document.getElementById('player-container');
+            const pdfViewerContainer = document.getElementById('pdf-viewer-container');
+            const videoControls = document.getElementById('video-controls');
+
+            if (tabName === 'videos') {{
+                videoPlayerContainer.classList.remove('hidden');
+                if (currentVideoUrl) {{ // Only show video controls if a video is loaded
+                     videoControls.classList.remove('hidden'); // Initially hide, playVideo will show
+                }} else {{
+                    videoControls.classList.add('hidden');
+                }}
+                pdfViewerContainer.classList.add('hidden'); // Ensure PDF viewer is hidden
+            }} else if (tabName === 'pdfs') {{
+                pdfViewerContainer.classList.remove('hidden');
+                videoPlayerContainer.classList.add('hidden'); // Ensure video player is hidden
+                videoControls.classList.add('hidden'); // Hide video controls
+            }} else {{ // Others tab
+                videoPlayerContainer.classList.add('hidden');
+                pdfViewerContainer.classList.add('hidden');
+                videoControls.classList.add('hidden'); // Hide video controls
+            }}
+        }}
+
+        function filterLinks() {{
+            const searchInput = document.getElementById('searchInput');
+            const filter = searchInput.value.toLowerCase();
+            
+            const activeContentDiv = document.querySelector('.content.active-content');
+            if (!activeContentDiv) return;
+
+            const links = activeContentDiv.querySelectorAll('a');
+
+            links.forEach(link => {{
+                let textContent = link.textContent || link.innerText;
+                textContent = textContent.toLowerCase();
+
+                if (textContent.indexOf(filter) > -1) {{
+                    link.style.display = "";
+                }} else {{
+                    link.style.display = "none";
+                }}
+            }});
+        }}
     </script>
 </body>
 </html>
-"""
-    os.makedirs(OUTPUT_HTML_FOLDER, exist_ok=True)
-    file_path = os.path.join(OUTPUT_HTML_FOLDER, file_name)
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(html_template)
-    return file_path
+    """
+    return html_template
 
-# --- Bot Commands (No changes needed here for UX/Config) ---
+def convert_html_to_txt(html_file_path):
+    extracted_data = []
+    
+    try:
+        with open(html_file_path, "r", encoding='utf-8') as f:
+            html_content = f.read()
+
+        video_block_match = re.search(r'<div id="videos" class="content[^>]*?">(.*?)</div>', html_content, re.DOTALL)
+        pdf_block_match = re.search(r'<div id="pdfs" class="content[^>]*?">(.*?)</div>', html_content, re.DOTALL)
+        other_block_match = re.search(r'<div id="others" class="content[^>]*?">(.*?)</div>', html_content, re.DOTALL)
+
+        video_link_pattern = r'<a[^>]*?(?:data-original-url="([^"]+)"|onclick="playVideo\(\'([^\']+)\'\)")?[^>]*?>(.*?)</a'
+        pdf_link_pattern = r'<a[^>]*?(?:data-original-url="([^"]+)"|onclick="openPdf\(\'([^\']+)\'(?:,\s*\'[^\']+\')?\)")?[^>]*?>(.*?)</a'
+        other_link_pattern = r'<a[^>]*?href="([^"]+)" target="_blank"[^>]*?>(.*?)</a'
+
+        def clean_name_from_html(raw_html_content):
+            clean_text = re.sub(r'<[^>]+>', '', raw_html_content).strip()
+            return html.unescape(clean_text)
+
+        if video_block_match:
+            video_content = video_block_match.group(1)
+            video_matches = re.findall(video_link_pattern, video_content, re.DOTALL)
+            for match in video_matches:
+                url = match[0] or match[1] # Prioritize data-original-url, then onclick URL
+                raw_name = match[2]
+                name = clean_name_from_html(raw_name)
+                if url:
+                    extracted_data.append(f"{name}: {html.unescape(url)}")
+
+        if pdf_block_match:
+            pdf_content = pdf_block_match.group(1)
+            pdf_matches = re.findall(pdf_link_pattern, pdf_content, re.DOTALL)
+            for match in pdf_matches:
+                url = match[0] or match[1] # Prioritize data-original-url, then onclick URL
+                raw_name = match[2]
+                name = clean_name_from_html(raw_name)
+                if url:
+                    extracted_data.append(f"{name}: {html.unescape(url)}")
+
+        if other_block_match:
+            other_content = other_block_match.group(1)
+            other_matches = re.findall(other_link_pattern, other_content, re.DOTALL)
+            for url, raw_name in other_matches:
+                name = clean_name_from_html(raw_name)
+                extracted_data.append(f"{name}: {html.unescape(url)}")
+
+    except Exception as e:
+        print(f"Error converting HTML to TXT with regex: {e}")
+        return None
+
+    return "\n".join(extracted_data)
+
+# --- Telegram Bot Handlers ---
 
 @app.on_message(filters.command("start") & filters.private)
-async def start_command(client, message: Message):
-    keyboard = ReplyKeyboardMarkup(
-        [
-            [KeyboardButton("Generate HTML 📄")],
-            [KeyboardButton("Bot Settings ⚙️")]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=False
-    )
-    await message.reply_text(
-        "👋 Welcome! I can help you generate HTML pages from your text files containing names and URLs.\n\n"
-        "Send me a `.txt` file with your links in the format `Name: URL` to get started.\n\n"
-        "Use the buttons below to navigate.",
-        reply_markup=keyboard
-    )
+async def start(client: Client, message: Message):
+    user_id = message.from_user.id
+    is_authorized = (user_id == config["OWNER_ID"] or user_id in config["SUDO_USERS"])
 
-@app.on_message(filters.command("help") & filters.private)
-async def help_command(client, message: Message):
-    help_text = (
-        "**Here's how I work:**\n\n"
-        "1.  **Send me a `.txt` file:** The file should contain `Name: URL` on each line.\n"
-        "    Example:\n"
-        "    `Video 1: https://example.com/video1.mp4`\n"
-        "    `Lecture Notes: https://example.com/notes.pdf`\n"
-        "    `Other Link: https://example.com/resource`\n\n"
-        "2.  I will process the file, categorize the links into Videos, PDFs, and Others, "
-        "    and then generate an HTML file for you.\n\n"
-        "3.  **Bot Settings (Admin/Sudo Only):**\n"
-        "    -   `/settings`: View current bot settings.\n"
-        "    -   `/setowner <user_id>`: Change owner ID.\n"
-        "    -   `/setsudo <user_ids>`: Add/remove sudo users (comma-separated).\n"
-        "    -   `/sethtmluser <username>`: Set HTML file username.\n"
-        "    -   `/sethtmlpass <password>`: Set HTML file password.\n"
-        "    -   `/setdisplayname <name>`: Set your display name for HTML.\n"
-        "    -   `/setchannel <link>`: Set your Telegram channel link.\n"
-        "    -   `/setcontact <link>`: Set your contact link.\n\n"
-        "Remember to use the buttons or send your `.txt` file!"
-    )
-    await message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)
+    # Provide a fallback URL if config values are invalid/empty
+    # Using 'about:blank' is a safe fallback that doesn't break URL buttons
+    channel_link = config['YOUR_CHANNEL_LINK'] if config['YOUR_CHANNEL_LINK'].startswith(('http://', 'https://')) else 'https://t.me/telegram'
+    contact_link = config['CONTACT_LINK'] if config['CONTACT_LINK'].startswith(('http://', 'https://')) else 'https://t.me/telegram'
 
-@app.on_message(filters.command("settings") & filters.private)
-@authorized_users_only
-async def show_settings(client, message: Message):
-    settings_text = (
-        "**Current Bot Settings:**\n"
-        f"**Owner ID:** `{config['OWNER_ID']}`\n"
-        f"**Sudo Users:** `{', '.join(map(str, config['SUDO_USERS'])) if config['SUDO_USERS'] else 'None'}`\n"
-        f"**HTML Username:** `{config['HTML_FILE_USERNAME']}`\n"
-        f"**HTML Password:** `{config['HTML_FILE_PASSWORD']}`\n"
-        f"**Display Name:** `{config['YOUR_NAME_FOR_DISPLAY']}`\n"
-        f"**Channel Link:** `{config['YOUR_CHANNEL_LINK'] or 'Not Set'}`\n"
-        f"**Contact Link:** `{config['CONTACT_LINK'] or 'Not Set'}`\n\n"
-        "Use `/set<setting_name> <value>` to change them. (e.g., `/sethtmluser newuser`)"
-    )
-    await message.reply_text(settings_text, parse_mode=ParseMode.MARKDOWN)
-
-@app.on_message(filters.command("setowner") & filters.private)
-@authorized_users_only
-async def set_owner_id(client, message: Message):
-    if len(message.command) < 2:
-        await message.reply_text("Usage: `/setowner <user_id>`")
-        return
-    try:
-        new_owner_id = int(message.command[1])
-        if new_owner_id <= 0:
-            raise ValueError("User ID must be a positive integer.")
-        config["OWNER_ID"] = new_owner_id
-        save_config_to_file()
-        await message.reply_text(f"Owner ID updated to `{new_owner_id}`.")
-    except ValueError:
-        await message.reply_text("Invalid User ID. Please provide a valid integer.")
-
-@app.on_message(filters.command("setsudo") & filters.private)
-@authorized_users_only
-async def set_sudo_users(client, message: Message):
-    if len(message.command) < 2:
-        config["SUDO_USERS"] = []
-        save_config_to_file()
-        await message.reply_text("Sudo users list cleared.")
-        return
+    # --- Inline Keyboard (for administrative/external links) ---
+    inline_buttons = [
+        [InlineKeyboardButton("📞 Contact Us", url=contact_link)]
+    ]
     
-    user_ids_str = message.command[1]
+    if is_authorized:
+        inline_buttons.insert(0, [InlineKeyboardButton("⚙️ Admin Settings", callback_data="admin_settings_menu")])
+        inline_buttons.insert(1, [InlineKeyboardButton(f"📡 {config['YOUR_NAME_FOR_DISPLAY']}'s Channel", url=channel_link)])
+    
+    inline_keyboard = InlineKeyboardMarkup(inline_buttons)
+
+    # --- Reply Keyboard (for common actions) ---
+    reply_keyboard_buttons = [
+        [KeyboardButton("📤 Generate HTML from TXT"), KeyboardButton("📥 Convert HTML to TXT")]
+    ]
+    # Add a "Help" button if more commands are needed
+    if is_authorized:
+        reply_keyboard_buttons.append([KeyboardButton("❓ Help")]) # For authorized users, provide context-specific help
+    else:
+        reply_keyboard_buttons.append([KeyboardButton("❔ Info")]) # For unauthorized, just general info
+    
+    reply_keyboard = ReplyKeyboardMarkup(
+        reply_keyboard_buttons,
+        resize_keyboard=True,
+        one_time_keyboard=False # Keep the keyboard visible
+    )
+
+    if is_authorized:
+        welcome_text = (
+            "🎉 **Welcome to the HTML Link Generator Bot!** 🎉\n\n"
+            "This bot helps you convert `.txt` files containing Name:URL pairs into beautiful, "
+            "password-protected HTML pages, and also convert `.html` pages back to `.txt`.\n\n"
+            "**How to use:**\n"
+            "1.  **Generate HTML:** Tap `📤 Generate HTML from TXT` or just upload your `.txt` file.\n"
+            "2.  **Convert to TXT:** Tap `📥 Convert HTML to TXT` or just upload your `.html` file.\n\n"
+            "**Admin Panel:** Use the **'⚙️ Admin Settings'** button below to manage bot configurations (HTML credentials, display info, sudo users)."
+        )
+    else:
+        welcome_text = (
+            "👋 **Welcome to the HTML Link Generator Bot!**\n\n"
+            "This bot helps convert `.txt` files (Name:URL) to beautiful, password-protected HTML pages, "
+            "and `.html` files back to `.txt`.\n\n"
+            "Please upload your `.txt` or `.html` file directly to the chat.\n\n"
+            "If you're looking for more info or assistance, use the buttons below."
+        )
+
+    await message.reply_text(
+        welcome_text,
+        reply_markup=reply_keyboard,
+        parse_mode=ParseMode.MARKDOWN
+    )
+    # Also send the inline keyboard separately if desired, or combine if it makes sense.
+    # For admin settings, a separate inline keyboard is better.
+    if is_authorized:
+         await message.reply_text(
+            "Quick access to admin settings:",
+            reply_markup=inline_keyboard,
+            parse_mode=ParseMode.MARKDOWN # Ensures proper rendering if any markdown is used
+        )
+    else:
+        # For unauthorized users, just send the inline buttons with the contact link if desired
+        await message.reply_text(
+            "Reach out to us:",
+            reply_markup=inline_keyboard,
+            parse_mode=ParseMode.MARKDOWN
+        )
+
+
+# --- Handle Reply Keyboard Buttons ---
+@app.on_message(filters.regex("📤 Generate HTML from TXT") & filters.private)
+@authorized_users_only
+async def reply_generate_html(client: Client, message: Message):
+    await message.reply_text(
+        "Alright! Please **upload your `.txt` file** containing links in `Name: URL` format. "
+        "I will convert it into a password-protected HTML file for you.",
+        parse_mode=ParseMode.MARKDOWN
+    )
+
+@app.on_message(filters.regex("📥 Convert HTML to TXT") & filters.private)
+@authorized_users_only
+async def reply_convert_txt(client: Client, message: Message):
+    await message.reply_text(
+        "Okay! Please **upload your `.html` file**. "
+        "I will extract the links and convert them back into a `.txt` file for you.",
+        parse_mode=ParseMode.MARKDOWN
+    )
+
+@app.on_message(filters.regex("❓ Help") & filters.private)
+@authorized_users_only
+async def reply_help_authorized(client: Client, message: Message):
+    await message.reply_text(
+        "Here are the commands you can use:\n\n"
+        "**File Handling:**\n"
+        "- Just **upload a `.txt` file** (Name:URL format) to generate HTML.\n"
+        "- Just **upload a `.html` file** to convert it back to `.txt`.\n\n"
+        "**Admin Commands:**\n"
+        "- `/sethtmlusername <new_username>`: Set username for HTML access.\n"
+        "- `/sethtmlpassword <new_password>`: Set password for HTML access.\n"
+        "- `/setdisplayname <Your Name Here>`: Set your name displayed in HTML.\n"
+        "- `/setchannellink <https://t.me/your_channel_link>`: Set channel link in HTML.\n"
+        "- `/setcontactlink <https://t.me/your_contact_link>`: Set contact link.\n"
+        "- `/addsudo <user_id>`: Add a user to the sudo list (Owner only).\n"
+        "- `/removesudo <user_id>`: Remove a user from the sudo list (Owner only).\n"
+        "- `/listsudo`: View current sudo users.\n\n"
+        "You can always use `/start` to see the main menu again.",
+        parse_mode=ParseMode.MARKDOWN
+    )
+
+@app.on_message(filters.regex("❔ Info") & filters.private)
+async def reply_info_unauthorized(client: Client, message: Message):
+    await message.reply_text(
+        "This bot is designed to convert `.txt` files (Name:URL format) into "
+        "password-protected HTML pages, and `.html` files back into `.txt`.\n\n"
+        "If you are looking for specific functionality or support, please use the '📞 Contact Us' button.",
+        parse_mode=ParseMode.MARKDOWN
+    )
+
+
+# --- Handle Document Uploads ---
+@app.on_message(filters.document & filters.private)
+@authorized_users_only # Apply the authorization decorator to document handling
+async def handle_document(client: Client, message: Message):
+    if not message.document:
+        await message.reply_text("Please upload a `.txt` or `.html` file.")
+        return
+
+    file_name = message.document.file_name
+    
+    # Send a "processing" message
+    processing_message = await message.reply_text(
+        f"Processing your file: `{file_name}`... Please wait.",
+        parse_mode=ParseMode.MARKDOWN
+    )
+
+    # Download the file
+    downloaded_file_path = await message.download()
+
     try:
-        new_sudo_users = []
-        for uid_str in user_ids_str.split(','):
-            uid = int(uid_str.strip())
-            if uid <= 0:
-                raise ValueError("User ID must be a positive integer.")
-            new_sudo_users.append(uid)
-        
-        config["SUDO_USERS"] = list(set(new_sudo_users)) # Ensure unique IDs
+        if file_name.endswith(".txt"):
+            # Handle TXT to HTML conversion
+            with open(downloaded_file_path, "r", encoding='utf-8') as f:
+                file_content = f.read()
+
+            names_and_urls = extract_names_and_urls(file_content)
+            if not names_and_urls:
+                await processing_message.edit_text(
+                    "❌ No valid `Name: URL` pairs found in your `.txt` file. "
+                    "Please ensure each link is on a new line and in the format `Name: URL`."
+                )
+                return
+
+            videos, pdfs, others = categorize_urls(names_and_urls)
+
+            html_content = generate_html(file_name, videos, pdfs, others)
+            html_file_name = file_name.replace(".txt", ".html")
+            html_file_path = os.path.join(OUTPUT_HTML_FOLDER, html_file_name)
+
+            os.makedirs(OUTPUT_HTML_FOLDER, exist_ok=True)
+            with open(html_file_path, "w", encoding='utf-8') as f:
+                f.write(html_content)
+
+            await message.reply_document(
+                document=html_file_path, 
+                caption="✅ **Successfully Generated HTML!**\n\n"
+                        "Your HTML file is ready. Please share it with your audience.",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            os.remove(html_file_path) # Clean up generated HTML file
+
+        elif file_name.endswith(".html"):
+            # Handle HTML to TXT conversion
+            txt_content = convert_html_to_txt(downloaded_file_path)
+            if txt_content:
+                txt_file_name = file_name.replace(".html", ".txt")
+                txt_file_path = os.path.join(OUTPUT_HTML_FOLDER, txt_file_name) # Temporarily store in output folder
+                
+                os.makedirs(OUTPUT_HTML_FOLDER, exist_ok=True)
+                with open(txt_file_path, "w", encoding='utf-8') as f:
+                    f.write(txt_content)
+                
+                await message.reply_document(
+                    document=txt_file_path, 
+                    caption="✅ **Successfully Converted HTML to TXT!**\n\n"
+                            "Your extracted links are in the `.txt` file.",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                os.remove(txt_file_path) # Clean up generated TXT file
+            else:
+                await processing_message.edit_text(
+                    "❌ Failed to convert HTML to TXT. The HTML structure might be unexpected or invalid. "
+                    "Ensure it's a file previously generated by this bot or follows a similar structure."
+                )
+        else:
+            await processing_message.edit_text("🚫 Unsupported file type. Please upload a `.txt` or `.html` file.")
+    except Exception as e:
+        print(f"Error handling document: {e}")
+        await processing_message.edit_text(f"❌ An error occurred while processing your file: `{e}`")
+    finally:
+        # Clean up the downloaded file after processing
+        if os.path.exists(downloaded_file_path):
+            os.remove(downloaded_file_path)
+
+
+# --- Callback Query Handlers (for Inline Keyboard buttons) ---
+@app.on_callback_query(filters.regex("^admin_settings_menu$"))
+@authorized_users_only
+async def admin_settings_menu_callback(client: Client, callback_query: CallbackQuery):
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔗 HTML Access Credentials", callback_data="edit_creds_button")],
+        [InlineKeyboardButton("✍️ HTML Display Settings", callback_data="edit_html_display_button")],
+        [InlineKeyboardButton("👥 Manage Sudo Users", callback_data="manage_sudo_button")],
+        [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="start_menu")]
+    ])
+    await callback_query.message.edit_text(
+        "**⚙️ Admin Settings Menu:**\n\n"
+        "Choose an option to manage bot configurations:",
+        reply_markup=keyboard,
+        parse_mode=ParseMode.MARKDOWN
+    )
+    await callback_query.answer()
+
+@app.on_callback_query(filters.regex("^edit_creds_button$"))
+@authorized_users_only
+async def edit_creds_callback(client: Client, callback_query: CallbackQuery):
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 Back to Admin Settings", callback_data="admin_settings_menu")]
+    ])
+    await callback_query.message.edit_text(
+        "**🔗 HTML Access Credentials:**\n\n"
+        "To change the username and password for your generated HTML files, use:\n"
+        "- `/sethtmlusername <new_username>`\n"
+        "- `/sethtmlpassword <new_password>`\n\n"
+        f"Current Username: `{config['HTML_FILE_USERNAME']}`\n"
+        f"Current Password: `{config['HTML_FILE_PASSWORD']}`\n\n"
+        "**Example:** `/sethtmlusername mysecretuser`",
+        reply_markup=keyboard,
+        parse_mode=ParseMode.MARKDOWN
+    )
+    await callback_query.answer()
+
+@app.on_callback_query(filters.regex("^manage_sudo_button$"))
+@authorized_users_only
+async def manage_sudo_callback(client: Client, callback_query: CallbackQuery):
+    sudo_list_str = "\n".join([f"- `{uid}`" for uid in config["SUDO_USERS"]]) if config["SUDO_USERS"] else "None"
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 Back to Admin Settings", callback_data="admin_settings_menu")]
+    ])
+    await callback_query.message.edit_text(
+        "**👥 Manage Sudo Users:**\n\n"
+        "Sudo users can use most admin commands.\n"
+        "**Note:** Only the bot owner can add/remove sudo users.\n\n"
+        "Your OWNER_ID (The Main Admin): `{owner_id}`\n"
+        "Current Sudo Users:\n{sudo_users}\n\n"
+        "Use these commands:\n"
+        "- `/addsudo <user_id>`\n"
+        "- `/removesudo <user_id>`\n"
+        "- `/listsudo`\n\n"
+        "**Example:** `/addsudo 123456789`",
+        reply_markup=keyboard,
+        parse_mode=ParseMode.MARKDOWN
+    )
+    await callback_query.answer()
+
+@app.on_callback_query(filters.regex("^edit_html_display_button$"))
+@authorized_users_only
+async def edit_html_display_callback(client: Client, callback_query: CallbackQuery):
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 Back to Admin Settings", callback_data="admin_settings_menu")]
+    ])
+    # Validate URLs for display in the message
+    display_channel_link = config['YOUR_CHANNEL_LINK'] if config['YOUR_CHANNEL_LINK'].startswith(('http://', 'https://')) else "Not set or invalid"
+    display_contact_link = config['CONTACT_LINK'] if config['CONTACT_LINK'].startswith(('http://', 'https://')) else "Not set or invalid"
+
+    await callback_query.message.edit_text(
+        "**✍️ HTML Display Settings:**\n\n"
+        "These settings control what is displayed on your generated HTML pages:\n"
+        "- `/setdisplayname <Your Name Here>`: Sets the name shown as the author/creator.\n"
+        "- `/setchannellink <https://t.me/your_channel>`: Sets the channel link below the name.\n"
+        "- `/setcontactlink <https://t.me/your_contact>`: Sets the contact link for the 'Contact Us' button.\n\n"
+        f"Current Display Name: `{config['YOUR_NAME_FOR_DISPLAY']}`\n"
+        f"Current Channel Link: `{display_channel_link}`\n"
+        f"Current Contact Link: `{display_contact_link}`\n\n"
+        "**Example:** `/setdisplayname Engineer Babu`",
+        reply_markup=keyboard,
+        parse_mode=ParseMode.MARKDOWN
+    )
+    await callback_query.answer()
+
+@app.on_callback_query(filters.regex("^start_menu$"))
+@authorized_users_only
+async def back_to_start_menu(client: Client, callback_query: CallbackQuery):
+    # Re-trigger the start command logic to show main menu
+    await callback_query.message.delete() # Delete the old message to clean up
+    await start(client, callback_query.message) # Use the message object from callback_query
+    await callback_query.answer()
+
+
+# --- Direct Command Handlers ---
+
+@app.on_message(filters.command("sethtmlusername") & filters.private)
+@authorized_users_only
+async def set_html_username(client: Client, message: Message):
+    if len(message.command) > 1:
+        new_username = message.command[1]
+        config["HTML_FILE_USERNAME"] = new_username
         save_config_to_file()
-        await message.reply_text(f"Sudo users updated to `{', '.join(map(str, config['SUDO_USERS']))}`.")
-    except ValueError:
-        await message.reply_text("Invalid User ID(s). Please provide comma-separated valid integers.")
+        await message.reply_text(f"✅ HTML file username set to: `{new_username}`", parse_mode=ParseMode.MARKDOWN)
+    else:
+        await message.reply_text("Usage: `/sethtmlusername <new_username>`\n\n"
+                                 "Current Username: `{}`".format(config['HTML_FILE_USERNAME']),
+                                 parse_mode=ParseMode.MARKDOWN)
 
-@app.on_message(filters.command("sethtmluser") & filters.private)
+@app.on_message(filters.command("sethtmlpassword") & filters.private)
 @authorized_users_only
-async def set_html_username(client, message: Message):
-    if len(message.command) < 2:
-        await message.reply_text("Usage: `/sethtmluser <username>`")
-        return
-    new_username = message.text.split(None, 1)[1].strip()
-    config["HTML_FILE_USERNAME"] = new_username
-    save_config_to_file()
-    await message.reply_text(f"HTML file username updated to `{new_username}`.")
-
-@app.on_message(filters.command("sethtmlpass") & filters.private)
-@authorized_users_only
-async def set_html_password(client, message: Message):
-    if len(message.command) < 2:
-        await message.reply_text("Usage: `/sethtmlpass <password>`")
-        return
-    new_password = message.text.split(None, 1)[1].strip()
-    config["HTML_FILE_PASSWORD"] = new_password
-    save_config_to_file()
-    await message.reply_text(f"HTML file password updated to `{new_password}`.")
+async def set_html_password(client: Client, message: Message):
+    if len(message.command) > 1:
+        new_password = message.command[1]
+        config["HTML_FILE_PASSWORD"] = new_password
+        save_config_to_file()
+        await message.reply_text(f"✅ HTML file password set to: `{new_password}`", parse_mode=ParseMode.MARKDOWN)
+    else:
+        await message.reply_text("Usage: `/sethtmlpassword <new_password>`\n\n"
+                                 "Current Password: `{}`".format(config['HTML_FILE_PASSWORD']),
+                                 parse_mode=ParseMode.MARKDOWN)
 
 @app.on_message(filters.command("setdisplayname") & filters.private)
 @authorized_users_only
-async def set_display_name(client, message: Message):
-    if len(message.command) < 2:
-        await message.reply_text("Usage: `/setdisplayname <name>`")
-        return
-    new_name = message.text.split(None, 1)[1].strip()
-    config["YOUR_NAME_FOR_DISPLAY"] = new_name
-    save_config_to_file()
-    await message.reply_text(f"Display name updated to `{new_name}`.")
-
-@app.on_message(filters.command("setchannel") & filters.private)
-@authorized_users_only
-async def set_channel_link(client, message: Message):
-    if len(message.command) < 2:
-        config["YOUR_CHANNEL_LINK"] = ""
+async def set_display_name(client: Client, message: Message):
+    if len(message.command) > 1:
+        new_name = " ".join(message.command[1:])
+        config["YOUR_NAME_FOR_DISPLAY"] = new_name
         save_config_to_file()
-        await message.reply_text("Channel link cleared. Using generic link if not set.")
-        return
-    
-    new_link = message.text.split(None, 1)[1].strip()
-    if not (new_link.startswith("http://") or new_link.startswith("https://")):
-        await message.reply_text("Invalid URL. Please provide a link starting with `http://` or `https://`.")
-        return
-
-    config["YOUR_CHANNEL_LINK"] = new_link
-    save_config_to_file()
-    await message.reply_text(f"Channel link updated to `{new_link}`.")
-
-@app.on_message(filters.command("setcontact") & filters.private)
-@authorized_users_only
-async def set_contact_link(client, message: Message):
-    if len(message.command) < 2:
-        config["CONTACT_LINK"] = ""
-        save_config_to_file()
-        await message.reply_text("Contact link cleared. Using generic link if not set.")
-        return
-    
-    new_link = message.text.split(None, 1)[1].strip()
-    if not (new_link.startswith("http://") or new_link.startswith("https://")):
-        await message.reply_text("Invalid URL. Please provide a link starting with `http://` or `https://`.")
-        return
-
-    config["CONTACT_LINK"] = new_link
-    save_config_to_file()
-    await message.reply_text(f"Contact link updated to `{new_link}`.")
-
-@app.on_message(filters.regex("Generate HTML 📄") & filters.private)
-async def generate_html_button(client, message: Message):
-    await message.reply_text(
-        "Please send me a `.txt` file containing the names and URLs."
-    )
-
-@app.on_message(filters.regex("Bot Settings ⚙️") & filters.private)
-@authorized_users_only
-async def bot_settings_button(client, message: Message):
-    await show_settings(client, message)
-
-@app.on_message(filters.document & filters.private)
-async def handle_document(client, message: Message):
-    if message.document and message.document.file_name.endswith(".txt"):
-        try:
-            temp_file_path = await message.download()
-            with open(temp_file_path, "r", encoding="utf-8") as f:
-                file_content = f.read()
-
-            data = extract_names_and_urls(file_content)
-            if not data:
-                await message.reply_text(
-                    "The `.txt` file is empty or does not contain data in the format `Name: URL`."
-                )
-                os.remove(temp_file_path)
-                return
-
-            videos, pdfs, others = categorize_urls(data)
-
-            output_file_name = f"{os.path.splitext(message.document.file_name)[0]}.html"
-            html_file_path = generate_html(output_file_name, videos, pdfs, others)
-
-            await message.reply_document(
-                document=html_file_path,
-                caption=f"Here is your generated HTML file: `{output_file_name}`"
-            )
-            os.remove(temp_file_path)
-            os.remove(html_file_path) # Clean up generated HTML file
-        except Exception as e:
-            await message.reply_text(f"An error occurred: `{e}`")
-            if os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
+        await message.reply_text(f"✅ Display name set to: `{new_name}`", parse_mode=ParseMode.MARKDOWN)
     else:
-        await message.reply_text(
-            "Please send a `.txt` file. Other file types are not supported for HTML generation."
-        )
+        await message.reply_text("Usage: `/setdisplayname <Your Name Here>`\n\n"
+                                 "Current Display Name: `{}`".format(config['YOUR_NAME_FOR_DISPLAY']),
+                                 parse_mode=ParseMode.MARKDOWN)
 
-print("Bot is starting...")
+@app.on_message(filters.command("setchannellink") & filters.private)
+@authorized_users_only
+async def set_channel_link(client: Client, message: Message):
+    if len(message.command) > 1:
+        new_link = message.command[1]
+        if new_link.startswith("http://") or new_link.startswith("https://"):
+            config["YOUR_CHANNEL_LINK"] = new_link
+            save_config_to_file()
+            await message.reply_text(f"✅ Channel link set to: `{new_link}`", parse_mode=ParseMode.MARKDOWN)
+        else:
+            await message.reply_text("❌ Please provide a valid URL starting with `http://` or `https://`.", parse_mode=ParseMode.MARKDOWN)
+    else:
+        await message.reply_text("Usage: `/setchannellink <https://t.me/your_channel_link>`\n\n"
+                                 "Current Channel Link: `{}`".format(config['YOUR_CHANNEL_LINK'] or "Not set"),
+                                 parse_mode=ParseMode.MARKDOWN)
+
+@app.on_message(filters.command("setcontactlink") & filters.private)
+@authorized_users_only
+async def set_contact_link(client: Client, message: Message):
+    if len(message.command) > 1:
+        new_link = message.command[1]
+        if new_link.startswith("http://") or new_link.startswith("https://"):
+            config["CONTACT_LINK"] = new_link
+            save_config_to_file()
+            await message.reply_text(f"✅ Contact link set to: `{new_link}`", parse_mode=ParseMode.MARKDOWN)
+        else:
+            await message.reply_text("❌ Please provide a valid URL starting with `http://` or `https://`.", parse_mode=ParseMode.MARKDOWN)
+    else:
+        await message.reply_text("Usage: `/setcontactlink <https://t.me/your_contact_channel_or_user>`\n\n"
+                                 "Current Contact Link: `{}`".format(config['CONTACT_LINK'] or "Not set"),
+                                 parse_mode=ParseMode.MARKDOWN)
+
+@app.on_message(filters.command("addsudo") & filters.private)
+@authorized_users_only # Only owner can add sudo
+async def add_sudo(client: Client, message: Message):
+    if message.from_user.id != config["OWNER_ID"]:
+        await message.reply_text("❌ Only the bot owner can add sudo users.", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    if len(message.command) > 1 and message.command[1].isdigit():
+        user_id = int(message.command[1])
+        if user_id == config["OWNER_ID"]:
+            await message.reply_text(f"❌ User `{user_id}` is the owner and doesn't need to be added to sudo.", parse_mode=ParseMode.MARKDOWN)
+            return
+        if user_id not in config["SUDO_USERS"]:
+            config["SUDO_USERS"].append(user_id)
+            save_config_to_file()
+            await message.reply_text(f"✅ User `{user_id}` added to sudo list.", parse_mode=ParseMode.MARKDOWN)
+        else:
+            await message.reply_text(f"ℹ️ User `{user_id}` is already in the sudo list.", parse_mode=ParseMode.MARKDOWN)
+    else:
+        await message.reply_text("Usage: `/addsudo <user_id>`\n\n"
+                                 "Get user ID from @userinfobot or @GetMyID_bot.",
+                                 parse_mode=ParseMode.MARKDOWN)
+
+@app.on_message(filters.command("removesudo") & filters.private)
+@authorized_users_only # Only owner can remove sudo
+async def remove_sudo(client: Client, message: Message):
+    if message.from_user.id != config["OWNER_ID"]:
+        await message.reply_text("❌ Only the bot owner can remove sudo users.", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    if len(message.command) > 1 and message.command[1].isdigit():
+        user_id = int(message.command[1])
+        if user_id == config["OWNER_ID"]:
+            await message.reply_text(f"❌ You cannot remove the owner (`{user_id}`) from the sudo list.", parse_mode=ParseMode.MARKDOWN)
+            return
+        if user_id in config["SUDO_USERS"]:
+            config["SUDO_USERS"].remove(user_id)
+            save_config_to_file()
+            await message.reply_text(f"✅ User `{user_id}` removed from sudo list.", parse_mode=ParseMode.MARKDOWN)
+        else:
+            await message.reply_text(f"ℹ️ User `{user_id}` is not in the sudo list.", parse_mode=ParseMode.MARKDOWN)
+    else:
+        await message.reply_text("Usage: `/removesudo <user_id>`", parse_mode=ParseMode.MARKDOWN)
+
+@app.on_message(filters.command("listsudo") & filters.private)
+@authorized_users_only
+async def list_sudo(client: Client, message: Message):
+    if config["SUDO_USERS"]:
+        sudo_list_str = "\n".join([f"- `{uid}`" for uid in config["SUDO_USERS"]])
+        await message.reply_text(f"**Current Sudo Users:**\n{sudo_list_str}", parse_mode=ParseMode.MARKDOWN)
+    else:
+        await message.reply_text("No sudo users currently configured.", parse_mode=ParseMode.MARKDOWN)
+
+# Ensure the OUTPUT_HTML_FOLDER exists when the bot starts
+os.makedirs(OUTPUT_HTML_FOLDER, exist_ok=True)
+
+# Run the bot
 app.run()
